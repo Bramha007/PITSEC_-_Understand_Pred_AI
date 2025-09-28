@@ -1,10 +1,29 @@
-Data
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 
-outputs/
+# Virtual Environments
+.venv/
+venv/
+env/
 
-dataset/
+# Temps
+*.tmp
 
-runs/*
+# Project-specific
+/outputs/
+!/outputs/.gitkeep
+/data/
+!src/data/
+*.pt
+*.pth
+*.ckpt
 
-yolov8n.pt
+# VS Code
+.vscode/
 
+# Windows / OS
+Thumbs.db
+.DS_Store

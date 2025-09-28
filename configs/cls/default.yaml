@@ -1,0 +1,28 @@
+# configs/cls/default.yaml
+seed: 42
+device: cuda
+
+data:
+  root: "data/sized_squares_unfilled"
+  limit_per_split: null
+
+model:
+  model_name: "resnet18" # resnet18|resnet34|resnet50
+  pretrained: true
+  out_dim: 2
+  final_act: null
+  p_drop: 0.0
+  input_size: 224
+
+train:
+  epochs: 20
+  batch_size: 128
+  num_workers: 4
+  log_every: 100
+
+eval:
+  batch_size: 256
+  num_workers: 4
+  run_during_train: true
+
+out_dir: "outputs/cls/default"
