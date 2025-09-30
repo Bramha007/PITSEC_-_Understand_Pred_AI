@@ -1,0 +1,50 @@
+# configs/det/default_cust.yaml
+
+seed: 1337
+device: cuda
+out_dir: outputs/det/default_cust
+
+# Cache Settings
+cache:
+  torch_home: weights
+
+# Data Settings
+data:
+  root: data/sized_squares_unfilled
+  limit_per_split: null
+
+# Model Settings
+model:
+  num_classes: 2
+  local_backbone_weights: weights/resnet50-0676ba61.pth
+  anchor_sizes: [[16], [32], [64], [128], [256]]
+  anchor_aspect_ratios:
+    - [0.5, 1.0, 2.0]
+    - [0.5, 1.0, 2.0]
+    - [0.5, 1.0, 2.0]
+    - [0.5, 1.0, 2.0]
+    - [0.5, 1.0, 2.0]
+
+# Training Settings
+train:
+  epochs: 5
+  batch_size: 4
+  num_workers: 4
+  lr: 0.005
+  weight_decay: 0.0005
+  optimizer: sgd
+  scheduler:
+    name:
+  amp: true
+  log_every: 50
+  grad_clip: null
+
+# Validation Settings
+eval:
+  run_during_train: true
+  batch_size: 1
+  num_workers: 2
+
+# Early Stopping Settings
+early_stopping:
+  monitor: ap50_global

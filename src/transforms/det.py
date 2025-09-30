@@ -1,104 +1,131 @@
 # src/transforms/det.py
+# Main detection transforms used in training/eval.
+# Minimal + stable; experimental ones live in det_experimental.py.
+
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Iterable, Tuple, Dict, Any
 import random
 import torch
 from torchvision.transforms import functional as F
 
-
-class ToTensor:
-    def __call__(self, img, target):
-        # If already a tensor, just return it
-        if isinstance(img, torch.Tensor):
-            return img, target
-        # Otherwise, PIL → RGB → tensor
-        if hasattr(img, "mode") and img.mode != "RGB":
-            img = img.convert("RGB")
-        img = F.to_tensor(img)
-        return img, target
+__all__ = [
+    "Compose",
+    "ToTensor",
+    "RandomHorizontalFlip",
+    "ResizeKeepRatio",
+    "ClampBoxes",
+]
 
 
-class RandomHorizontalFlip:
-    def __init__(self, p=0.5):
-        self.p = p
-
-    def __call__(self, img, target):
-        if random.random() < self.p:
-            # F.get_image_size works for PIL or Tensor
-            w, _ = F.get_image_size(img)
-            if "boxes" in target:
-                boxes = target["boxes"].clone()
-                boxes[:, [0, 2]] = w - boxes[:, [2, 0]]
-                target["boxes"] = boxes
-            img = F.hflip(img)
-        return img, target
-
-
-class AnisotropicScale:
-    """
-    Randomly scale width and height independently.
-    Accepts scale_range=(min,max) or min_scale/max_scale.
-    """
-    def __init__(self, scale_range=None, min_scale=None, max_scale=None):
-        if scale_range is not None:
-            self.min_scale, self.max_scale = scale_range
-        else:
-            self.min_scale = 0.7 if min_scale is None else min_scale
-            self.max_scale = 1.3 if max_scale is None else max_scale
-
-    def __call__(self, img, target):
-        sx = random.uniform(self.min_scale, self.max_scale)
-        sy = random.uniform(self.min_scale, self.max_scale)
-        w, h = F.get_image_size(img)
-        new_w = max(1, int(round(w * sx)))
-        new_h = max(1, int(round(h * sy)))
-        img = F.resize(img, [new_h, new_w], antialias=True)
-        if "boxes" in target and target["boxes"] is not None:
-            boxes = target["boxes"].clone()
-            boxes[:, [0, 2]] *= sx
-            boxes[:, [1, 3]] *= sy
-            target["boxes"] = boxes
-        return img, target
-
-
-class RandomResize:
-    """Pick target short side from `sizes` and resize isotropically."""
-    def __init__(self, sizes):
-        self.sizes = sizes
-
-    def __call__(self, img, target):
-        size = random.choice(self.sizes)
-        w, h = F.get_image_size(img)
-        scale = size / min(w, h)
-        new_w, new_h = int(round(w * scale)), int(round(h * scale))
-        img = F.resize(img, (new_h, new_w), antialias=True)
-        if "boxes" in target:
-            boxes = target["boxes"] * torch.tensor([scale, scale, scale, scale])
-            target["boxes"] = boxes
-        return img, target
-
-
-class ClampBoxes:
-    def __call__(self, img, target):
-        if "boxes" not in target or target["boxes"] is None:
-            return img, target
-        boxes = target["boxes"].clone().to(dtype=torch.float32)
-        w, h = F.get_image_size(img)
-        boxes[:, 0].clamp_(0, max(w - 1, 0))
-        boxes[:, 2].clamp_(0, max(w - 1, 0))
-        boxes[:, 1].clamp_(0, max(h - 1, 0))
-        boxes[:, 3].clamp_(0, max(h - 1, 0))
-        fix_x = boxes[:, 2] <= boxes[:, 0]
-        boxes[fix_x, 2] = torch.clamp(boxes[fix_x, 0] + 1.0, max=w - 1)
-        fix_y = boxes[:, 3] <= boxes[:, 1]
-        boxes[fix_y, 3] = torch.clamp(boxes[fix_y, 1] + 1.0, max=h - 1)
-        target["boxes"] = boxes
-        return img, target
+def _get_size(img) -> Tuple[int, int]:
+    # Return (W,H) for PIL or Tensor images
+    w, h = F.get_image_size(img)
+    return int(w), int(h)
 
 
 class Compose:
-    def __init__(self, ts):
-        self.ts = ts
+    # Chain multiple transforms
+    def __init__(self, transforms: Iterable):
+        self.transforms = list(transforms)
+
+    def __call__(self, img, target: Dict[str, Any]):
+        for t in self.transforms:
+            img, target = t(img, target)
+        return img, target
+
+
+class ToTensor:
+    # Convert PIL -> FloatTensor [0,1], keep tensor as-is
+    def __call__(self, img, target):
+        if isinstance(img, torch.Tensor):
+            return img, target
+        if hasattr(img, "mode") and img.mode != "RGB":
+            img = img.convert("RGB")
+        return F.to_tensor(img), target
+
+
+@dataclass
+class RandomHorizontalFlip:
+    # Flip with probability p
+    p: float = 0.5
 
     def __call__(self, img, target):
-        for t in self.ts:
-            img, target = t(img, target)
+        if random.random() >= self.p:
+            return img, target
+
+        w, _ = _get_size(img)
+        img = F.hflip(img)
+
+        # flip x-coordinates of boxes
+        if target is not None and "boxes" in target and target["boxes"] is not None:
+            boxes = target["boxes"]
+            x1 = boxes[:, 0].clone()
+            x2 = boxes[:, 2].clone()
+            boxes[:, 0] = w - x2
+            boxes[:, 2] = w - x1
+            target = {**target, "boxes": boxes}
+        return img, target
+
+
+@dataclass
+class ResizeKeepRatio:
+    # Resize to short_side, keep ratio; clamp by max_long_side if given
+    short_side: int
+    max_long_side: int | None = None
+    antialias: bool = True
+
+    def __call__(self, img, target):
+        w, h = _get_size(img)
+        if min(w, h) == 0:
+            return img, target
+
+        scale = self.short_side / min(w, h)
+        new_w = int(round(w * scale))
+        new_h = int(round(h * scale))
+
+        if self.max_long_side is not None and max(new_w, new_h) > self.max_long_side:
+            clamp_scale = self.max_long_side / max(new_w, new_h)
+            new_w = int(round(new_w * clamp_scale))
+            new_h = int(round(new_h * clamp_scale))
+
+        if new_w == w and new_h == h:
+            return img, target
+
+        img = F.resize(img, [new_h, new_w], antialias=self.antialias)
+
+        # scale GT boxes
+        if target is not None and "boxes" in target and target["boxes"] is not None:
+            sx = new_w / max(w, 1)
+            sy = new_h / max(h, 1)
+            boxes = target["boxes"].clone()
+            boxes[:, [0, 2]] *= sx
+            boxes[:, [1, 3]] *= sy
+            target = {**target, "boxes": boxes}
+        return img, target
+
+
+@dataclass
+class ClampBoxes:
+    # Clamp boxes inside image; enforce min size
+    min_size: float = 1.0
+
+    def __call__(self, img, target):
+        if target is None or "boxes" not in target or target["boxes"] is None:
+            return img, target
+
+        w, h = _get_size(img)
+        boxes = target["boxes"].clone()
+
+        # clamp coords
+        boxes[:, 0::2] = boxes[:, 0::2].clamp(min=0.0, max=float(w))
+        boxes[:, 1::2] = boxes[:, 1::2].clamp(min=0.0, max=float(h))
+
+        # ensure nonzero width/height
+        x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+        x2 = torch.maximum(x2, x1 + self.min_size)
+        y2 = torch.maximum(y2, y1 + self.min_size)
+        boxes = torch.stack([x1, y1, x2, y2], dim=1)
+
+        target = {**target, "boxes": boxes}
         return img, target

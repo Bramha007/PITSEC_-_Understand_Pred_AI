@@ -1,28 +1,46 @@
 # configs/cls/test.yaml
-seed: 42
+
+# Random Seed And Device
+seed: 1337
 device: cuda
 
+# Data Settings
 data:
-  root: "data/sized_squares_unfilled"
+  root: data/sized_squares_unfilled
   limit_per_split: 25
 
+# Model Settings
 model:
-  model_name: "resnet18"
+  model_name: resnet18
   pretrained: true
-  out_dim: 2
-  final_act: null
-  p_drop: 0.0
   input_size: 224
+  out_dim: 2
 
+# Training Settings
 train:
   epochs: 2
-  batch_size: 8
+  batch_size: 4
   num_workers: 2
-  log_every: 20
+  lr: 0.001
+  weight_decay: 0.0001
+  loss: mse
+  log_every: 50
 
+# Validation Settings
 eval:
-  batch_size: 64
+  batch_size: 4
   num_workers: 2
   run_during_train: true
 
-out_dir: "outputs/cls/test"
+# Metric Settings
+metrics:
+  which: [mae, mse, rmse, mape, smape, r2, pearson, bucket_acc, bucket_mae, bucket_rmse]
+  bucket_on: long
+  bucket_edges: [0, 32, 64, 96, 128, 160, 99999]
+
+# Early Stopping Settings
+early_stopping:
+  monitor: overall_rmse
+
+# Output Directory
+out_dir: outputs/cls/test

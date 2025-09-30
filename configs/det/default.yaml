@@ -1,29 +1,38 @@
-seed: 42
-device: cuda   # or "cpu"
+# configs/det/default.yaml
 
-data:
-  root: "data/sized_squares_unfilled"
-  limit_per_split: null
-
-model:
-  num_classes: 2           # Foreground + background
-  custom: false            # use standard COCO-style anchors (ratios [0.5, 1.0, 2.0], sizes [32..512])
-  # If you want custom anchors instead, set custom: true and provide anchor_sizes/anchor_ratios
-
-train:
-  epochs: 20
-  batch_size: 4            # bump if your GPU has enough memory
-  num_workers: 4
-  log_every: 100
-
-eval:
-  batch_size: 2
-  num_workers: 4
-  run_during_train: true
-
-optim:
-  lr: 0.005
-  momentum: 0.9
-  weight_decay: 1e-4
-
+seed: 1337
+device: cuda
 out_dir: outputs/det/default
+
+# Data Settings
+data:
+  root: data/sized_squares_unfilled
+
+# Model Settings
+model:
+  num_classes: 2
+  local_backbone_weights: weights/resnet50-0676ba61.pth
+
+# Training Settings
+train:
+  epochs: 5
+  batch_size: 4
+  num_workers: 4
+  lr: 0.005
+  weight_decay: 0.0005
+  optimizer: sgd
+  scheduler:
+    name:
+  amp: true
+  log_every: 50
+  grad_clip: null
+
+# Validation Settings
+eval:
+  run_during_train: true
+  batch_size: 1
+  num_workers: 2
+
+# Early Stopping Settings
+early_stopping:
+  monitor: ap50_global

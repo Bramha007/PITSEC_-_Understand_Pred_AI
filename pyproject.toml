@@ -1,15 +1,12 @@
 [project]
-name = "rectangles"
+name = "Understanding-Pred-AI"
 version = "0.1.0"
-requires-python = ">=3.10"
-dependencies = [
-    "torch",
-    "torchvision",
-    "tqdm",
-    "numpy",
-    "matplotlib",
-    "pyyaml",
-]
+requires-python = "==3.11.9"
+readme = "README.md"
 
-[tool.ruff]
-line-length = 120
+license = { text = "MIT" }
+keywords = ["AI", "XAI", "classification", "detection", "explainability"]
+dependencies = [] # handled via base.txt + cpu.txt/gpu.txt at repo root
+
+[project.urls]
+repository = "https://github.com/Bramha007/WPT-Project/tree/dev-main"

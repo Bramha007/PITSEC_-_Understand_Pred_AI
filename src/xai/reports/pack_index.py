@@ -1,3 +1,4 @@
+# src/xai/reports/pack_index.py
 import os, json, glob
 from pathlib import Path
 

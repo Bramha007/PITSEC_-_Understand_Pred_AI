@@ -1,7 +1,0 @@
-images: E:/WPT-Project/Data/sized_squares_filled/test
-ann:    E:/WPT-Project/Data/sized_squares_filled/annotations
-ckpt:   outputs/resnet_cls.pt
-out:    outputs/xai_cls
-fraction: 0.05
-seed: 42
-canvas: 224

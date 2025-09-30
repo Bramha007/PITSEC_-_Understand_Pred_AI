@@ -1,29 +1,7 @@
-# Python
 __pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# Virtual Environments
+.pytest_cache/
+.mypy_cache/
 .venv/
-venv/
-env/
-
-# Temps
-*.tmp
-
-# Project-specific
-/outputs/
-!/outputs/.gitkeep
-/data/
-!src/data/
-*.pt
-*.pth
-*.ckpt
-
-# VS Code
-.vscode/
-
-# Windows / OS
-Thumbs.db
-.DS_Store
+*.egg-info/
+outputs/
+data/

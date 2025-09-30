@@ -1,4 +1,7 @@
 # scripts/check_data.py
+# Quick Sanity Check For Detection And Classification Datasets
+# Verifies Sample Shapes, Labels, And One-Batch DataLoader Behavior
+
 import argparse
 import random
 import sys
@@ -6,16 +9,17 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.data.det import SquaresDetectionDataset, collate_fn
-from src.data.cls import SquaresClassificationDatasetStreamStream
+from src.data.cls import SquaresCLSData
 from src.data.voc import paired_image_xml_list
 from src.transforms import det as Tdet
 
 
+# Check Detection Samples And One-Batch Dataloader
 def check_det(images_dir: str, ann_dir: str, num: int, batch_size: int):
     pairs = paired_image_xml_list(images_dir, ann_dir)
     if not pairs:
         print("[DET] No (image, xml) pairs found. Check your paths & filenames.")
-        return  # don't exit; allow cls check to run
+        return  # Don't Exit; Allow CLS Check To Run
 
     ds = SquaresDetectionDataset(pairs, transforms=Tdet.Compose([Tdet.ToTensor()]))
 
@@ -26,7 +30,7 @@ def check_det(images_dir: str, ann_dir: str, num: int, batch_size: int):
         n_boxes = int(tgt["boxes"].shape[0]) if "boxes" in tgt else 0
         print(f"  sample {i}: img={tuple(img.shape)} boxes={n_boxes}")
 
-    # One-batch DataLoader smoke test (catches collate/stacking issues)
+    # One-Batch Dataloader Smoke Test (Catches Collate/Stacking Issues)
     try:
         dl = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
         imgs, tgts = next(iter(dl))
@@ -36,13 +40,14 @@ def check_det(images_dir: str, ann_dir: str, num: int, batch_size: int):
         raise
 
 
+# Check Classification Samples And One-Batch Dataloader
 def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: int = 224):
     pairs = paired_image_xml_list(images_dir, ann_dir)
     if not pairs:
         print("[CLS] No (image, xml) pairs found. Check your paths & filenames.")
-        return  # don't exit; allow det check to report too
+        return  # Don't Exit; Allow DET Check To Report Too
 
-    ds = SquaresClassificationDatasetStreamStream(
+    ds = SquaresCLSData(
         pairs, canvas=canvas, train=False, use_padding_canvas=True
     )
 
@@ -54,14 +59,14 @@ def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: 
             if label.numel() == 1:
                 lbl_str = str(int(label.item()))
             else:
-                # show two regression values with 1 decimal (short, long)
+                # Show Two Regression Values With 1 Decimal (Short, Long)
                 vals = [float(x) for x in label.flatten().tolist()]
                 lbl_str = f"reg{tuple(round(v, 1) for v in vals)}"
         else:
             lbl_str = str(label)
         print(f"  sample {i}: img={tuple(img.shape)} label={lbl_str}")
 
-    # One-batch DataLoader smoke test
+    # One-Batch Dataloader Smoke Test
     try:
         dl = DataLoader(ds, batch_size=batch_size, shuffle=False)
         x, y = next(iter(dl))
@@ -71,17 +76,18 @@ def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: 
         raise
 
 
+# Main
 def main():
-    ap = argparse.ArgumentParser(description="Minimal dataset sanity check")
-    ap.add_argument("--task", choices=["det", "cls"], default=None, help="Which pipeline to check. If not set, runs both (det then cls).")
-    ap.add_argument("--images", default="data/sized_squares_unfilled/train", help="Image dir to inspect")
-    ap.add_argument("--ann", default="data/sized_squares_unfilled/annotations", help="VOC XML dir to inspect")
+    ap = argparse.ArgumentParser(description="Minimal Dataset Sanity Check")
+    ap.add_argument("--task", choices=["det", "cls"], default=None, help="Which Pipeline To Check. If Not Set, Runs Both (det Then cls).")
+    ap.add_argument("--images", default="data/sized_squares_unfilled/train", help="Image Dir To Inspect")
+    ap.add_argument("--ann", default="data/sized_squares_unfilled/annotations", help="VOC XML Dir To Inspect")
     ap.add_argument("--num", type=int, default=5)
     ap.add_argument("--batch-size", type=int, default=4)
-    ap.add_argument("--canvas", type=int, default=224, help="Classification canvas (only for --task cls)")
+    ap.add_argument("--canvas", type=int, default=224, help="Classification Canvas (Only For --task cls)")
     args = ap.parse_args()
 
-    # Run both if no task is specified
+    # Run Both If No Task Is Specified
     ran_any = False
     if args.task is None or args.task == "det":
         check_det(args.images, args.ann, num=args.num, batch_size=args.batch_size)

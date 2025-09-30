@@ -1,3 +1,4 @@
+# scripts/cls/counterfactuals.py
 import os
 import numpy as np
 import torch
@@ -5,7 +6,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 from src.data.voc import paired_image_xml_list
-from src.data.cls import SquaresClassificationDatasetStreamStream
+from src.data.cls import SquaresCLSData
 from src.data.split import subsample_pairs
 from src.models.cls_resnet import build_resnet_classifier
 from src.xai.core.gradcam_utils import GradCAM
@@ -125,7 +126,7 @@ def main():
     if len(pairs) == 0:
         raise RuntimeError("No test pairs found after fractioning. Check paths and F_TEST.")
     print(f"Using {len(pairs)}/{len(pairs_all)} test pairs (fraction={F_TEST})")
-    ds = SquaresClassificationDatasetStreamStream(pairs, canvas=CANVAS, train=False, use_padding_canvas=True)
+    ds = SquaresCLSData(pairs, canvas=CANVAS, train=False, use_padding_canvas=True)
     x, y = ds[0]
     model = build_resnet_classifier(num_outputs=5)
     model.load_state_dict(torch.load(CKPT, map_location="cpu"))

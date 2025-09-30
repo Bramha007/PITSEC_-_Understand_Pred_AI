@@ -1,40 +1,31 @@
 # src/models/cls_resnet.py
+# ResNet Backbone With Custom Two-Value Regression Head
+
 from typing import Optional
 import torch.nn as nn
-
-try:
-    from torchvision.models import (
-        resnet18, resnet34, resnet50,
-        ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
-    )
-    _HAS_WEIGHTS = True
-except Exception:
-    from torchvision.models import resnet18, resnet34, resnet50  # type: ignore
-    _HAS_WEIGHTS = False
+from torchvision.models import (
+    resnet18, resnet34, resnet50,
+    ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
+)
 
 
+# Load ResNet Backbone With Optional Pretrained Weights
 def _load_backbone(name: str, pretrained: bool):
     name = name.lower()
     if name == "resnet18":
-        if _HAS_WEIGHTS:
-            weights = ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
-            return resnet18(weights=weights)
-        return resnet18(pretrained=pretrained)
+        weights = ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+        return resnet18(weights=weights)
     if name == "resnet34":
-        if _HAS_WEIGHTS:
-            weights = ResNet34_Weights.IMAGENET1K_V1 if pretrained else None
-            return resnet34(weights=weights)
-        return resnet34(pretrained=pretrained)
+        weights = ResNet34_Weights.IMAGENET1K_V1 if pretrained else None
+        return resnet34(weights=weights)
     if name == "resnet50":
-        if _HAS_WEIGHTS:
-            weights = ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
-            return resnet50(weights=weights)
-        return resnet50(pretrained=pretrained)
+        weights = ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        return resnet50(weights=weights)
     raise ValueError(f"Unsupported model_name: {name}. Use resnet18|resnet34|resnet50.")
 
 
+# Small Head To Regress Two Values With Optional Final Activation
 class Head2D(nn.Module):
-    """Tiny head to regress two values; optional final activation."""
     def __init__(self, in_features: int, out_dim: int = 2,
                  final_act: Optional[str] = None, p_drop: float = 0.0):
         super().__init__()
@@ -58,15 +49,12 @@ class Head2D(nn.Module):
         return self.net(x)
 
 
-def build_resnet_backbone(model_name: str = "resnet18",
+# Build ResNet And Replace FC Layer With Regression Head
+def build_resnet_classifier(model_name: str = "resnet18",
                           out_dim: int = 2,
                           pretrained: bool = True,
                           final_act: Optional[str] = None,
                           p_drop: float = 0.0) -> nn.Module:
-    """
-    Build a ResNet and replace the FC with a small regression head.
-    If training on normalized targets in [0,1], set final_act='sigmoid'.
-    """
     m = _load_backbone(model_name, pretrained=pretrained)
     in_features = m.fc.in_features  # type: ignore[attr-defined]
     m.fc = Head2D(in_features, out_dim=out_dim, final_act=final_act, p_drop=p_drop)  # type: ignore[attr-defined]

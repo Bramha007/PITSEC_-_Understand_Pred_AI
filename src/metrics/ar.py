@@ -1,34 +1,32 @@
 # src/metrics/ar.py
-# Aspect-Ratio bucketed AP@0.5 evaluation for object detection (class-agnostic by default).
-# Works with standard torchvision-style models and dataloaders: images -> model -> {boxes, scores, labels}
-# Saves JSON + bar chart to out_dir.
+# Aspect-Ratio–Bucketed AP@0.5 Evaluation For Object Detection (Class-Agnostic By Default)
+# Works With Torchvision-Style Models And Dataloaders; Saves JSON And Optional Bar Chart
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Sequence
 import os, json
 import numpy as np
+import matplotlib.pyplot as plt
 
-try:
-    # Lazy import for charting (only if available in the runtime)
-    import matplotlib.pyplot as plt
-    _HAS_PLT = True
-except Exception:
-    _HAS_PLT = False
 
 @dataclass
 class ARBucket:
     name: str
-    lo: float   # inclusive
-    hi: float   # exclusive
+    lo: float   # Inclusive
+    hi: float   # Exclusive
 
+
+# Default AR Buckets (By GT Long/Short Ratio)
 DEFAULT_AR_BUCKETS: Tuple[ARBucket, ...] = (
     ARBucket("near_square", 1.0, 1.3334),  # ≤ 4:3
     ARBucket("moderate",    1.3334, 2.0),  # 4:3–2:1
     ARBucket("skinny",      2.0,  1e9),    # ≥ 2:1
 )
 
+
 def _iou_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    # a: [Na,4], b: [Nb,4], format xyxy
+    # Compute IoU Matrix For Two Sets Of Boxes (XYXY)
     if a.size == 0 or b.size == 0:
         return np.zeros((a.shape[0], b.shape[0]), dtype=np.float32)
     ixmin = np.maximum(a[:, None, 0], b[None, :, 0])
@@ -44,16 +42,18 @@ def _iou_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     iou = np.where(union > 0, inter / np.maximum(union, 1e-9), 0.0)
     return iou.astype(np.float32)
 
+
 def _compute_ap(rec: np.ndarray, prec: np.ndarray) -> float:
-    # VOC-style interpolation (area under precision-recall envelope)
+    # VOC-Style Interpolation (Area Under Precision–Recall Envelope)
     mrec = np.concatenate(([0.0], rec, [1.0]))
     mpre = np.concatenate(([0.0], prec, [0.0]))
     for i in range(mpre.size - 1, 0, -1):
         mpre[i-1] = np.maximum(mpre[i-1], mpre[i])
-    # Points where recall changes
+    # Points Where Recall Changes
     i = np.where(mrec[1:] != mrec[:-1])[0]
     ap = float(np.sum((mrec[i+1] - mrec[i]) * mpre[i+1]))
     return ap
+
 
 def evaluate_ap_by_ar(
     model,
@@ -65,23 +65,17 @@ def evaluate_ap_by_ar(
     tag: str = "val",
     class_agnostic: bool = True,
 ) -> Dict:
-    """
-    Evaluate AP@0.5 per AR bucket.
-    - Bucket assignment is based on GT AR = long/short.
-    - Only images containing at least one GT in the bucket are included for that bucket.
-    - Predictions matched to GTs outside the bucket are ignored for that bucket's PR computation.
-    - Unmatched predictions on included images count as FPs for that bucket.
-    Returns a dict with fields:
-      {'ap50_by_ar': {bucket_name: value}, 'counts': {...}, 'detail': {...}}
-    """
+    # Evaluate AP@0.5 Per AR Bucket
+    # Bucket Assignment Uses GT AR = Long/Short; Only Images With A GT In Bucket Contribute To That Bucket
     model.eval()
     all_imgs = []
     with_no_grad = getattr(__import__('torch'), 'no_grad')
     with with_no_grad():
         for images, targets in data_loader:
+            # Run Model And Move Outputs To CPU Numpy
             ims = [im.to(device) for im in images]
             preds = model(ims)
-            # Move to CPU numpy for evaluation
+
             pred_cpu = []
             for p in preds:
                 boxes = p.get('boxes', None)
@@ -91,6 +85,7 @@ def evaluate_ap_by_ar(
                 scores = scores.detach().cpu().numpy() if scores is not None else np.zeros((0,), np.float32)
                 labels = labels.detach().cpu().numpy() if labels is not None else np.zeros((0,), np.int64)
                 pred_cpu.append((boxes, scores, labels))
+
             tgt_cpu = []
             for t in targets:
                 boxes = t.get('boxes', None)
@@ -98,9 +93,10 @@ def evaluate_ap_by_ar(
                 boxes = boxes.detach().cpu().numpy() if boxes is not None else np.zeros((0,4), np.float32)
                 labels = labels.detach().cpu().numpy() if labels is not None else np.zeros((0,), np.int64)
                 tgt_cpu.append((boxes, labels))
+
             all_imgs.append((pred_cpu, tgt_cpu))
 
-    # Flatten across batches
+    # Flatten Across Batches
     preds_per_image = []
     tgts_per_image  = []
     for (pred_batch, tgt_batch) in all_imgs:
@@ -108,7 +104,7 @@ def evaluate_ap_by_ar(
             preds_per_image.append(p)
             tgts_per_image.append(t)
 
-    # Prepare bucket membership per image
+    # Compute GT AR Per Image And Bucket Membership
     gt_ar_per_image: List[np.ndarray] = []
     img_has_bucket: List[List[bool]] = []
     for (gt_boxes, _) in tgts_per_image:
@@ -130,22 +126,22 @@ def evaluate_ap_by_ar(
     results = {"ap50_by_ar": {}, "counts": {}, "detail": {}}
 
     for bi, b in enumerate(buckets):
-        # Gather images that have at least one GT in this AR bucket
+        # Select Images Containing At Least One GT In This Bucket
         eligible = [i for i, flags in enumerate(img_has_bucket) if flags[bi]]
         if len(eligible) == 0:
             results["ap50_by_ar"][b.name] = 0.0
             results["counts"][b.name] = {"num_images": 0, "num_gts": 0}
             continue
 
-        pred_records = []  # (score, is_tp)
+        pred_records = []  # (Score, IsTP)
         num_gts_total = 0
 
-        # For each image, per-class matching (or class-agnostic)
+        # Per-Image Matching (Class-Agnostic Or Per-Class)
         for i in eligible:
             pred_boxes, pred_scores, pred_labels = preds_per_image[i]
             gt_boxes, gt_labels = tgts_per_image[i]
 
-            # Select GTs in this AR bucket
+            # Keep GTs In This Bucket
             if gt_boxes.size == 0:
                 continue
             w = gt_boxes[:,2] - gt_boxes[:,0]
@@ -156,21 +152,19 @@ def evaluate_ap_by_ar(
             gt_labels_b = gt_labels[in_bucket]
             num_gts_total += int(gt_boxes_b.shape[0])
             if gt_boxes_b.shape[0] == 0:
-                # No GTs in bucket for this image; all predictions on this image are counted as FP
+                # No GTs In Bucket For This Image → All Predictions Count As FP
                 for s in pred_scores.tolist():
                     pred_records.append((float(s), 0))
                 continue
 
-            # Optionally class-agnostic
             if class_agnostic:
-                # Greedy match by IoU to any gt in bucket
+                # Greedy Match By IoU To Any GT In Bucket
                 ious = _iou_matrix(pred_boxes, gt_boxes_b)  # [Np, Ng]
                 matched_gt = set()
-                order = np.argsort(-pred_scores)  # high to low
+                order = np.argsort(-pred_scores)  # High To Low
                 for p_idx in order:
                     if pred_boxes.shape[0] == 0:
                         break
-                    # match to best-IOU GT not yet matched
                     best_gt = -1
                     best_iou = 0.0
                     for g_idx in range(gt_boxes_b.shape[0]):
@@ -186,7 +180,7 @@ def evaluate_ap_by_ar(
                     else:
                         pred_records.append((float(pred_scores[p_idx]), 0))
             else:
-                # Per-class matching
+                # Per-Class Matching
                 classes = np.unique(np.concatenate([pred_labels, gt_labels_b]))
                 for c in classes:
                     pb = pred_boxes[pred_labels == c]
@@ -220,7 +214,7 @@ def evaluate_ap_by_ar(
             results["counts"][b.name] = {"num_images": len(eligible), "num_gts": 0}
             continue
 
-        # Build PR
+        # Build Precision–Recall And Compute AP
         scores = np.array([r[0] for r in pred_records], dtype=np.float32)
         tps    = np.array([r[1] for r in pred_records], dtype=np.int32)
         if scores.size == 0:
@@ -242,7 +236,7 @@ def evaluate_ap_by_ar(
             "precision_points": prec.tolist(),
         }
 
-    # Save artifacts
+    # Save Artifacts
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
         out_json = os.path.join(out_dir, f"ar_metrics_{tag}.json")
@@ -257,7 +251,7 @@ def evaluate_ap_by_ar(
             plt.xticks(xs, names, rotation=15)
             plt.ylim([0.0, 1.0])
             plt.ylabel("AP@0.5")
-            plt.title(f"AR-bucket AP ({tag})")
+            plt.title(f"AR-Bucket AP ({tag})")
             plt.tight_layout()
             plt.savefig(os.path.join(out_dir, f"ar_metrics_{tag}.png"), dpi=160)
             plt.close()

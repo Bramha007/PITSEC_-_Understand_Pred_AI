@@ -1,0 +1,6 @@
+numpy==1.26.4
+pillow==11.3.0
+PyYAML==6.0.2
+tqdm==4.67.1
+captum==0.8.0
+matplotlib==3.10.6

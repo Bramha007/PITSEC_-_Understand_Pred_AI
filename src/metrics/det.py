@@ -1,188 +1,247 @@
 # src/metrics/det.py
-import json, os
-from dataclasses import dataclass
-from typing import List, Dict, Tuple
+# Detection Metrics: Global AP@0.5, AR, And Size-Bucket AP
+# Numpy-First Implementation Compatible With Torchvision-Style Outputs
+
+from __future__ import annotations
+from typing import Dict, List, Tuple
 import numpy as np
-import torch
-import matplotlib.pyplot as plt
-from torchvision.ops import box_iou
 
-# Size buckets: [0,12]=~8px, (12,24]=~16, (24,48]=~32, (48,96]=~64, (96,inf)=~128
-from src.constants.sizes import DET_EDGES as BUCKET_EDGES, DET_LABELS as BUCKET_LABELS
 
-def side_from_boxes(boxes: torch.Tensor) -> torch.Tensor:
-    # boxes: [N,4] xyxy
-    wh = boxes[:, 2:4] - boxes[:, 0:2]
-    return torch.max(wh[:, 0], wh[:, 1])
+# Compute IoU For Two Boxes In XYXY Format
+def compute_iou(a: np.ndarray, b: np.ndarray) -> float:
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    iw = max(0.0, ix2 - ix1)
+    ih = max(0.0, iy2 - iy1)
+    inter = iw * ih
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    union = area_a + area_b - inter + 1e-12
+    return float(inter / union)
 
-def bucket_index(side: float) -> int:
-    for i in range(len(BUCKET_EDGES)-1):
-        if BUCKET_EDGES[i] <= side <= BUCKET_EDGES[i+1]:
-            return i
-    return len(BUCKET_EDGES)-2
 
-@dataclass
-class PRData:
-    scores: List[float]
-    tp: List[int]
-    fp: List[int]
-    npos: int
+# 11-Point AP From TP/FP Lists
+def _ap11_from_tp_fp(tp: np.ndarray, fp: np.ndarray, total_gts: int) -> float:
+    if total_gts <= 0 or tp.size == 0:
+        return 0.0
+    # Sanity: Lengths Must Match
+    if tp.shape != fp.shape:
+        # Pad Shorter One With Zeros (Safety Net; Should Not Trigger With Correct Logic)
+        n = max(tp.size, fp.size)
+        if tp.size < n:
+            tp = np.pad(tp, (0, n - tp.size))
+        if fp.size < n:
+            fp = np.pad(fp, (0, n - fp.size))
 
-def _accumulate_pr(all_scores: List[float], all_tp: List[int], all_fp: List[int], npos: int):
-    if len(all_scores) == 0 or npos == 0:
-        return np.zeros(1), np.zeros(1), 0.0
-    order = np.argsort(-np.array(all_scores))
-    tp = np.array(all_tp)[order]
-    fp = np.array(all_fp)[order]
-    tp_cum = np.cumsum(tp)
-    fp_cum = np.cumsum(fp)
-    recall = tp_cum / float(npos)
-    precision = tp_cum / np.maximum(1, tp_cum + fp_cum)
-    # 11-point VOC AP
+    tp_c = np.cumsum(tp)
+    fp_c = np.cumsum(fp)
+    recall = tp_c / float(total_gts)
+    precision = tp_c / np.maximum(tp_c + fp_c, 1e-12)
+
     ap = 0.0
     for r in np.linspace(0, 1, 11):
-        p = np.max(precision[recall >= r]) if np.any(recall >= r) else 0.0
-        ap += p / 11.0
-    return precision, recall, ap
+        mask = (recall >= r)
+        p_at_r = precision[mask].max() if mask.any() else 0.0
+        ap += p_at_r
+    return float(ap / 11.0)
 
-@torch.no_grad()
-def collect_pr_data(model, loader, device="cpu") -> Tuple[PRData, Dict[int, PRData]]:
-    model.eval()
-    # Global
-    scores, tp, fp = [], [], []
-    npos_global = 0
-    # Per-bucket
-    bucket_scores = {i: [] for i in range(len(BUCKET_LABELS))}
-    bucket_tp     = {i: [] for i in range(len(BUCKET_LABELS))}
-    bucket_fp     = {i: [] for i in range(len(BUCKET_LABELS))}
-    bucket_npos   = {i: 0   for i in range(len(BUCKET_LABELS))}
 
-    for imgs, targets in loader:
-        imgs = [img.to(device) for img in imgs]
-        gts  = [t["boxes"].to(device) for t in targets]
-        preds = model(imgs)
+# Global 11-Point AP@IoU=0.5
+def ap_at_05(preds: List[Dict], gts: List[Dict], iou_thr: float = 0.5) -> float:
+    # Flatten Predictions Into (Score, ImgId, Box)
+    records = []
+    total_gts = 0
+    for i, (p, g) in enumerate(zip(preds, gts)):
+        pb = np.asarray(p.get("boxes", np.zeros((0, 4), np.float32)), dtype=float)
+        ps = np.asarray(p.get("scores", np.zeros((0,), np.float32)), dtype=float)
+        gb = np.asarray(g.get("boxes", np.zeros((0, 4), np.float32)), dtype=float)
+        total_gts += len(gb)
+        for j in range(len(ps)):
+            records.append((float(ps[j]), i, pb[j]))
+    if not records:
+        return 0.0
+    records.sort(key=lambda x: x[0], reverse=True)
 
-        for pred, gt in zip(preds, gts):
-            # Count positives (global + per-bucket)
-            npos_global += gt.size(0)
-            for s in side_from_boxes(gt).cpu().tolist():
-                bucket_npos[bucket_index(s)] += 1
-
-            if pred["boxes"].numel() == 0:
+    # Greedy One-To-One Matching
+    matched = set()
+    tp_list, fp_list = [], []
+    all_gb = [np.asarray(g.get("boxes", np.zeros((0, 4), np.float32)), dtype=float) for g in gts]
+    for _, img_id, box in records:
+        gb = all_gb[img_id]
+        best_iou, best_j = 0.0, -1
+        for j in range(len(gb)):
+            if (img_id, j) in matched:
                 continue
-            pb = pred["boxes"]; ps = pred["scores"]
-            order = torch.argsort(ps, descending=True)
-            pb = pb[order]; ps = ps[order]
-            ious = box_iou(pb, gt) if gt.numel() else torch.zeros((pb.size(0), 0), device=pb.device)
+            iou = compute_iou(box, gb[j])
+            if iou > best_iou:
+                best_iou, best_j = iou, j
+        if best_iou >= iou_thr and best_j >= 0:
+            matched.add((img_id, best_j))
+            tp_list.append(1.0); fp_list.append(0.0)
+        else:
+            tp_list.append(0.0); fp_list.append(1.0)
 
-            matched_gt = set()
-            for i in range(pb.size(0)):
-                s = float(ps[i].item())
-                # global bookkeeping
-                if gt.numel():
-                    j = torch.argmax(ious[i]).item()
-                    hit = (ious[i, j] >= 0.5) and (j not in matched_gt)
-                else:
-                    hit = False
-                # mark GT as matched if this is a TP to prevent double counting
-                if hit:
-                    matched_gt.add(j)
-                scores.append(s)
-                tp.append(1 if hit else 0)
-                fp.append(0 if hit else 1)
+    return _ap11_from_tp_fp(np.array(tp_list, float), np.array(fp_list, float), total_gts)
 
-                # per-bucket bookkeeping (bucket by the matched GT if hit; otherwise bucket by nearest GT)
-                if gt.numel():
-                    ref_j = j
-                    b_idx = bucket_index(float(side_from_boxes(gt[ref_j:ref_j+1])[0].item()))
-                else:
-                    # no GT -> put in largest bucket arbitrarily to not break accounting
-                    b_idx = len(BUCKET_LABELS)-1
-                bucket_scores[b_idx].append(s)
-                bucket_tp[b_idx].append(1 if hit else 0)
-                bucket_fp[b_idx].append(0 if hit else 1)
 
-    global_pr = PRData(scores, tp, fp, npos_global)
-    per_bucket = {i: PRData(bucket_scores[i], bucket_tp[i], bucket_fp[i], bucket_npos[i]) for i in bucket_scores}
-    return global_pr, per_bucket
+# Size Bucket Thresholds (Pixels^2, COCO-Like)
+_AREA_SMALL_MAX = 32 * 32
+_AREA_MED_MAX   = 96 * 96
 
-def evaluate_ap_by_size(model, loader, device="cpu", out_dir="outputs", tag="val"):
-    os.makedirs(out_dir, exist_ok=True)
-    global_pr, per_bucket = collect_pr_data(model, loader, device=device)
 
-    prec, rec, ap_global = _accumulate_pr(global_pr.scores, global_pr.tp, global_pr.fp, global_pr.npos)
-    ap_buckets = {}
-    for i in range(len(BUCKET_LABELS)):
-        pbd = per_bucket[i]
-        _, _, ap_i = _accumulate_pr(pbd.scores, pbd.tp, pbd.fp, pbd.npos)
-        ap_buckets[BUCKET_LABELS[i]] = float(ap_i)
+# Compute Box Area In XYXY
+def _box_area_xyxy(box: np.ndarray) -> float:
+    x1, y1, x2, y2 = box
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)
 
-    # Compute FP/FN per bucket
-    fpfn = _compute_fp_fn(per_bucket)
 
-    # Save JSON
-    js = {
-        "tag": tag,
-        "ap50_global": float(ap_global),
-        "ap50_by_size": ap_buckets,
-        "npos_total": int(global_pr.npos),
-        "npos_by_size": {BUCKET_LABELS[i]: int(per_bucket[i].npos) for i in range(len(BUCKET_LABELS))},
-        "fp_fn_by_size": fpfn,
+# Build Subset Index Lists For Each Size Bin
+def _subset_indices_by_size(gt_boxes: List[np.ndarray]) -> Dict[str, List[Tuple[int, int]]]:
+    bins = {"small": [], "medium": [], "large": []}
+    for i, gb in enumerate(gt_boxes):
+        for j in range(len(gb)):
+            a = _box_area_xyxy(gb[j])
+            if a <= _AREA_SMALL_MAX:
+                bins["small"].append((i, j))
+            elif a <= _AREA_MED_MAX:
+                bins["medium"].append((i, j))
+            else:
+                bins["large"].append((i, j))
+    return bins
+
+
+# AP@0.5 For A GT Subset (By Size)
+def _ap50_for_subset(preds_np: List[Dict[str, np.ndarray]],
+                     gts_np: List[np.ndarray],
+                     subset: List[Tuple[int, int]]) -> float:
+    if len(subset) == 0:
+        return 0.0
+    subset_set = set(subset)
+
+    # Flatten Predictions
+    records = []
+    total_gts = len(subset)
+    for img_id, p in enumerate(preds_np):
+        pb = p["boxes"]; ps = p["scores"]
+        for j in range(len(ps)):
+            records.append((float(ps[j]), img_id, pb[j]))
+    if not records:
+        return 0.0
+    records.sort(key=lambda x: x[0], reverse=True)
+
+    # Greedy Matching Only Against Subset GTs
+    matched = set()
+    tp, fp = [], []
+    for _, img_id, box in records:
+        gb = gts_np[img_id]
+        best_iou, best_j = 0.0, -1
+        for j in range(len(gb)):
+            if (img_id, j) not in subset_set:
+                continue
+            if (img_id, j) in matched:
+                continue
+            iou = compute_iou(box, gb[j])
+            if iou > best_iou:
+                best_iou, best_j = iou, j
+        if best_iou >= 0.5 and best_j >= 0:
+            matched.add((img_id, best_j)); tp.append(1.0); fp.append(0.0)
+        else:
+            tp.append(0.0); fp.append(1.0)   # Keep TP/FP Aligned
+
+    # Sanity Check
+    assert len(tp) == len(fp), f"TP/FP Length Mismatch: {len(tp)} vs {len(fp)}"
+
+    return _ap11_from_tp_fp(np.array(tp, float), np.array(fp, float), total_gts)
+
+
+# Public API: Evaluate Model And Return (Metrics, Preds, GTs)
+def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, tag: str = "val"
+                        ) -> Tuple[Dict, List[Dict], List[Dict]]:
+    # Returns (Metrics Dict, Predictions, Ground Truths)
+    # Metrics Include ap50_global, ap_global (=ap50), ar_global, ap50_small/medium/large, And Counts
+    import torch  # Local Import To Keep Module Lightweight When Not Used
+
+    # Switch To Eval Mode
+    model.eval()
+
+    # Collect Predictions/GTs On CPU
+    preds_cpu: List[Dict] = []
+    gts_cpu: List[Dict] = []
+
+    with torch.no_grad():
+        for images, targets in data_loader:
+            ims = [im.to(device) for im in images]
+            outs = model(ims)
+            for o, t in zip(outs, targets):
+                boxes = o.get("boxes", torch.empty(0, 4))
+                scores = o.get("scores", torch.empty(0))
+                preds_cpu.append({
+                    "boxes": boxes.detach().cpu().numpy().astype(float),
+                    "scores": scores.detach().cpu().numpy().astype(float),
+                })
+                gb = t.get("boxes", torch.empty(0, 4))
+                gts_cpu.append({"boxes": gb.detach().cpu().numpy().astype(float)})
+
+    # Prepare NumPy Views
+    preds_np = [{"boxes": p["boxes"], "scores": p["scores"]} for p in preds_cpu]
+    gts_np   = [g["boxes"] for g in gts_cpu]
+
+    # Global AP@0.5
+    ap50_global = ap_at_05(
+        preds=[{"boxes": p["boxes"], "scores": p["scores"]} for p in preds_cpu],
+        gts=[{"boxes": g} for g in gts_np],
+        iou_thr=0.5
+    )
+
+    # Simple AR Estimate (Best Recall Over Score Sweep)
+    total_gts = int(sum(len(g) for g in gts_np))
+    records = []
+    for img_id, p in enumerate(preds_np):
+        for j in range(len(p["scores"])):
+            records.append((float(p["scores"][j]), img_id, p["boxes"][j]))
+    records.sort(key=lambda x: x[0], reverse=True)
+
+    matched = set()
+    tp_marks = []
+    for _, img_id, box in records:
+        gb = gts_np[img_id]
+        best_iou, best_j = 0.0, -1
+        for j in range(len(gb)):
+            if (img_id, j) in matched:
+                continue
+            iou = compute_iou(box, gb[j])
+            if iou > best_iou:
+                best_iou, best_j = iou, j
+        if best_iou >= 0.5 and best_j >= 0:
+            matched.add((img_id, best_j)); tp_marks.append(1.0)
+        else:
+            tp_marks.append(0.0)
+    ar_global = float(np.max(np.cumsum(np.array(tp_marks, float)) / max(1, total_gts))) if (total_gts > 0 and tp_marks) else 0.0
+
+    # Size-Bucket APs
+    bins = _subset_indices_by_size(gts_np)
+    ap50_small  = _ap50_for_subset(preds_np, gts_np, bins["small"])
+    ap50_medium = _ap50_for_subset(preds_np, gts_np, bins["medium"])
+    ap50_large  = _ap50_for_subset(preds_np, gts_np, bins["large"])
+
+    # Metrics Dictionary
+    metrics = {
+        "ap50_global": float(ap50_global),
+        "ap_global": float(ap50_global),   # Same As ap50 (Single IoU)
+        "ar_global": float(ar_global),
+        "ap50_small": float(ap50_small),
+        "ap50_medium": float(ap50_medium),
+        "ap50_large": float(ap50_large),
+        "num_images": len(gts_np),
+        "num_gts": total_gts,
+        "num_small": len(bins["small"]),
+        "num_medium": len(bins["medium"]),
+        "num_large": len(bins["large"]),
     }
-    out_json = os.path.join(out_dir, f"det_metrics_{tag}.json")
-    with open(out_json, "w") as f:
-        json.dump(js, f, indent=2)
-    # Bar charts
-    out_png = os.path.join(out_dir, f"det_ap_by_size_{tag}.png")
-    _plot_bars(ap_buckets, out_png, title=f"AP@0.5 by size ({tag})")
 
-    out_fpfn_png = os.path.join(out_dir, f"det_fpfn_by_size_{tag}.png")
-    _plot_fp_fn_bars(fpfn, out_fpfn_png, title=f"FP/FN by size ({tag})")
-
-    # Optional global PR curve
-    _plot_pr(prec, rec, os.path.join(out_dir, f"det_pr_curve_{tag}.png"))
-
-    return js, out_json, out_png
-
-def _plot_bars(ap_dict: Dict[str, float], out_path: str, title: str):
-    xs = list(ap_dict.keys())
-    ys = [ap_dict[k] for k in xs]
-    plt.figure(figsize=(6,4))
-    plt.bar(xs, ys)
-    plt.ylim(0,1.0); plt.ylabel("AP@0.5"); plt.title(title)
-    for i,y in enumerate(ys):
-        plt.text(i, y+0.02, f"{y:.2f}", ha="center", va="bottom", fontsize=9)
-    plt.tight_layout(); plt.savefig(out_path, dpi=140, bbox_inches="tight"); plt.close()
-
-def _plot_pr(precision, recall, out_path: str):
-    plt.figure(figsize=(5,4))
-    plt.plot(recall, precision)
-    plt.xlabel("Recall"); plt.ylabel("Precision"); plt.title("PR curve (global)")
-    plt.xlim(0,1); plt.ylim(0,1)
-    plt.tight_layout(); plt.savefig(out_path, dpi=140, bbox_inches="tight"); plt.close()
-
-
-def _compute_fp_fn(per_bucket) -> dict:
-    res = {}
-    for i in range(len(BUCKET_LABELS)):
-        pbd = per_bucket[i]
-        tp_sum = int(sum(pbd.tp))
-        fp_sum = int(sum(pbd.fp))
-        fn_sum = int(max(0, pbd.npos - tp_sum))
-        res[BUCKET_LABELS[i]] = {"tp": tp_sum, "fp": fp_sum, "fn": fn_sum, "npos": int(pbd.npos)}
-    return res
-
-def _plot_fp_fn_bars(fpfn: dict, out_path: str, title: str):
-    import matplotlib.pyplot as plt
-    labels = list(fpfn.keys())
-    fps = [fpfn[k]["fp"] for k in labels]
-    fns = [fpfn[k]["fn"] for k in labels]
-    xs = range(len(labels))
-    width = 0.4
-    plt.figure(figsize=(7,4))
-    plt.bar([x - width/2 for x in xs], fps, width=width, label="FP")
-    plt.bar([x + width/2 for x in xs], fns, width=width, label="FN")
-    plt.xticks(list(xs), labels)
-    plt.ylabel("Count"); plt.title(title)
-    plt.legend()
-    plt.tight_layout(); plt.savefig(out_path, dpi=140, bbox_inches="tight"); plt.close()
+    # JSON-Friendly Copies
+    preds_list = [{"boxes": p["boxes"].tolist(), "scores": p["scores"].tolist()} for p in preds_np]
+    gts_list   = [{"boxes": g.tolist()} for g in gts_np]
+    return metrics, preds_list, gts_list

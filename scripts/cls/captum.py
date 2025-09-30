@@ -1,3 +1,4 @@
+# scripts/cls/captum.py
 import os, json, logging, datetime, argparse, torch, numpy as np
 from pathlib import Path
 from PIL import Image
@@ -9,7 +10,7 @@ from src.constants.norms import IMAGENET_MEAN, IMAGENET_STD
 
 from src.models.cls_resnet import build_resnet_classifier
 from src.xai.pipelines.cls_captum import run_cls_captum_pipeline
-from src.data.cls import SquaresClassificationDatasetStreamStream
+from src.data.cls import SquaresCLSData
 from src.xai.core.overlays import overlay_cam
 
 def main():
@@ -28,7 +29,7 @@ def main():
 
     pairs_all = paired_image_xml_list(args.images, args.ann)
     pairs = subsample_pairs(pairs_all, fraction=args.fraction, seed=args.seed)
-    ds = SquaresClassificationDatasetStreamStream(pairs, canvas=224, train=False, use_padding_canvas=True)
+    ds = SquaresCLSData(pairs, canvas=224, train=False, use_padding_canvas=True)
 
     device = torch.device("cpu")
     model = build_resnet_classifier(num_outputs=5).to(device)

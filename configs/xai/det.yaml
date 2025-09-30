@@ -1,8 +1,0 @@
-images: E:/WPT-Project/Data/sized_squares_filled/test
-ann:    E:/WPT-Project/Data/sized_squares_filled/annotations
-ckpt:   outputs/fasterrcnn_squares_cpu.pt
-out:    outputs/xai_det
-fraction: 0.05
-seed: 14
-k: 10
-score_thr: 0.5
