@@ -23,7 +23,6 @@ python -m venv .venv && source .venv/bin/activate   # (Windows: .venv\Scripts\ac
 pip install --upgrade pip
 
 pip install -r requirements/cpu.txt
-pip install -e .
 ```
 
 ### GPU (CUDA 12.4 wheels)
@@ -33,7 +32,6 @@ python -m venv .venv && source .venv/bin/activate   # (Windows: .venv\Scripts\ac
 pip install --upgrade pip
 
 pip install -r requirements/gpu.txt
-pip install -e .
 ```
 
 > **Why two files?**  
