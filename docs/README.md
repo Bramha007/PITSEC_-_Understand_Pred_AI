@@ -22,7 +22,7 @@ Choose **one** of the two setups below.
 python -m venv .venv && source .venv/bin/activate   # (Windows: .venv\Scripts\activate)
 pip install --upgrade pip
 
-pip install -r base.txt -r cpu.txt
+pip install -r requirements/cpu.txt
 pip install -e .
 ```
 
@@ -32,7 +32,7 @@ pip install -e .
 python -m venv .venv && source .venv/bin/activate   # (Windows: .venv\Scripts\activate)
 pip install --upgrade pip
 
-pip install -r base.txt -r gpu.txt
+pip install -r requirements/gpu.txt
 pip install -e .
 ```
 
