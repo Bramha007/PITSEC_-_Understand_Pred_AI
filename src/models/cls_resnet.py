@@ -1,14 +1,17 @@
 # src/models/cls_resnet.py
 
-# ResNet Backbone With Custom Two-Value Regression Head
+# ResNet Backbone With Custom Regression Head
+# Supports resnet18|resnet34|resnet50 Backbones, Optional Pretrained Weights
+# Head2D Allows Optional Dropout And Final Activation
 
 from typing import Optional
+
+# Third-Party
 import torch.nn as nn
 from torchvision.models import (
     resnet18, resnet34, resnet50,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 )
-
 
 # Load ResNet Backbone With Optional Pretrained Weights
 def _load_backbone(name: str, pretrained: bool):
@@ -24,8 +27,7 @@ def _load_backbone(name: str, pretrained: bool):
         return resnet50(weights=weights)
     raise ValueError(f"Unsupported model_name: {name}. Use resnet18|resnet34|resnet50.")
 
-
-# Small Head To Regress Two Values With Optional Final Activation
+# Small Head To Regress Two Values With Optional Dropout And Final Activation
 class Head2D(nn.Module):
     def __init__(self, in_features: int, out_dim: int = 2,
                  final_act: Optional[str] = None, p_drop: float = 0.0):
@@ -49,13 +51,12 @@ class Head2D(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
-# Build ResNet And Replace FC Layer With Regression Head
+# Build ResNet Classifier With Regression Head
 def build_resnet_classifier(model_name: str = "resnet18",
-                          out_dim: int = 2,
-                          pretrained: bool = True,
-                          final_act: Optional[str] = None,
-                          p_drop: float = 0.0) -> nn.Module:
+                            out_dim: int = 2,
+                            pretrained: bool = True,
+                            final_act: Optional[str] = None,
+                            p_drop: float = 0.0) -> nn.Module:
     m = _load_backbone(model_name, pretrained=pretrained)
     in_features = m.fc.in_features  # type: ignore[attr-defined]
     m.fc = Head2D(in_features, out_dim=out_dim, final_act=final_act, p_drop=p_drop)  # type: ignore[attr-defined]

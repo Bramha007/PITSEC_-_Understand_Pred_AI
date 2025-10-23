@@ -3,12 +3,18 @@
 # Quick Sanity Check For Detection And Classification Datasets
 # Verifies Sample Shapes, Labels, And One-Batch DataLoader Behavior
 
+from __future__ import annotations
+
+# Standard Library
 import argparse
 import random
 import sys
+
+# Third-Party
 import torch
 from torch.utils.data import DataLoader
 
+# Local Modules
 from src.data.det import SquaresDetectionDataset, collate_fn
 from src.data.cls import SquaresCLSData
 from src.data.voc import paired_image_xml_list
@@ -49,7 +55,10 @@ def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: 
         return  # Don't Exit; Allow DET Check To Report Too
 
     ds = SquaresCLSData(
-        pairs, canvas=canvas, train=False, use_padding_canvas=True
+        pairs,
+        canvas=canvas,
+        train=False,
+        use_padding_canvas=True,
     )
 
     print(f"[CLS] samples: {len(ds)}")
@@ -77,16 +86,16 @@ def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: 
         raise
 
 
-# Main
+# Main Entry Point
 def main():
-    ap = argparse.ArgumentParser(description="Minimal Dataset Sanity Check")
-    ap.add_argument("--task", choices=["det", "cls"], default=None, help="Which Pipeline To Check. If Not Set, Runs Both (det Then cls).")
-    ap.add_argument("--images", default="data/sized_squares_unfilled/train", help="Image Dir To Inspect")
-    ap.add_argument("--ann", default="data/sized_squares_unfilled/annotations", help="VOC XML Dir To Inspect")
-    ap.add_argument("--num", type=int, default=5)
-    ap.add_argument("--batch-size", type=int, default=4)
-    ap.add_argument("--canvas", type=int, default=224, help="Classification Canvas (Only For --task cls)")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description="Minimal Dataset Sanity Check")
+    parser.add_argument("--task", choices=["det", "cls"], default=None, help="Which Pipeline To Check. If Not Set, Runs Both (det Then cls).")
+    parser.add_argument("--images", default="data/sized_squares_unfilled/train", help="Image Dir To Inspect")
+    parser.add_argument("--ann", default="data/sized_squares_unfilled/annotations", help="VOC XML Dir To Inspect")
+    parser.add_argument("--num", type=int, default=5)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--canvas", type=int, default=224, help="Classification Canvas (Only For --task cls)")
+    args = parser.parse_args()
 
     # Run Both If No Task Is Specified
     ran_any = False
@@ -103,5 +112,6 @@ def main():
         sys.exit(1)
 
 
+# Entry Point
 if __name__ == "__main__":
     main()

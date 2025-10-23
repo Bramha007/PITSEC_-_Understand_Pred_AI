@@ -1,24 +1,43 @@
 # src/utils/determinism.py
 
-import os, random, numpy as np, torch
+# Utilities For Reproducible Training And Data Loading
+# Provides Global Seed Setup, Torch Generator Creation, And Worker Initialization
 
-def set_seed(seed: int, deterministic_cudnn: bool = True):
-    if seed is None: return                        # skip if no seed
-    os.environ["PYTHONHASHSEED"] = str(seed)       # fix hash-based ops
-    random.seed(seed); np.random.seed(seed)        # stdlib + NumPy RNG
-    torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)  # PyTorch CPU+GPU
-    if deterministic_cudnn:                        # disable non-deterministic CuDNN paths
+# Standard Library
+import os
+import random
+
+# Third-Party
+import numpy as np
+import torch
+
+def SetSeed(seed: int, deterministic_cudnn: bool = True):
+    # Set Global Random Seed For Python, NumPy, And PyTorch (CPU + GPU)
+    if seed is None:
+        return  # Skip If No Seed Provided
+
+    os.environ["PYTHONHASHSEED"] = str(seed)        # Fix Hash-Based Operations
+    random.seed(seed)                               # Python RNG
+    np.random.seed(seed)                            # NumPy RNG
+    torch.manual_seed(seed)                         # PyTorch CPU RNG
+    torch.cuda.manual_seed_all(seed)               # PyTorch GPU RNG
+
+    if deterministic_cudnn:
+        # Enforce Deterministic CuDNN Paths
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        torch.use_deterministic_algorithms(True, warn_only=True)  # enforce deterministic ops
+        torch.use_deterministic_algorithms(True, warn_only=True)  # Warn Only If Non-Deterministic
 
-def make_generator(seed: int) -> torch.Generator:
-    g = torch.Generator()                          # torch.Generator for DataLoader etc.
+def MakeGenerator(seed: int) -> torch.Generator:
+    # Create Torch Generator For DataLoader Or Other Randomized Operations
+    g = torch.Generator()
     g.manual_seed(seed)
     return g
 
-def worker_init_fn(worker_id: int):
+def WorkerInitFn(worker_id: int):
+    # Initialize DataLoader Worker With Unique Seed
     base = int(os.environ.get("DATA_WORKER_SEED", "0"))
-    s = base + worker_id                           # derive worker-specific seed
-    random.seed(s); np.random.seed(s & 0xFFFFFFFF) # ensure 32-bit NumPy seed
-    torch.manual_seed(s)
+    s = base + worker_id                             # Derive Worker-Specific Seed
+    random.seed(s)                                   # Python RNG
+    np.random.seed(s & 0xFFFFFFFF)                  # Ensure 32-Bit NumPy Seed
+    torch.manual_seed(s)                             # PyTorch RNG

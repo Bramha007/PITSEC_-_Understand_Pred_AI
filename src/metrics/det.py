@@ -1,11 +1,16 @@
 # src/metrics/det.py
 
-# Detection Metrics: Global AP@0.5, AR, And Size-Bucket AP
+# Detection Metrics Utilities
+# Computes AP@0.5, AR, and Size-Bucket APs for VOC-Style Datasets
+# Supports Size-Based Evaluation And CPU-Based Metric Aggregation
 
 from __future__ import annotations
-from typing import Dict, List, Tuple
-import numpy as np
 
+# Standard Library
+from typing import Dict, List, Tuple
+
+# Third-Party
+import numpy as np
 
 # Compute IoU For Two Boxes In XYXY Format
 def compute_iou(a: np.ndarray, b: np.ndarray) -> float:
@@ -21,36 +26,29 @@ def compute_iou(a: np.ndarray, b: np.ndarray) -> float:
     union = area_a + area_b - inter + 1e-12
     return float(inter / union)
 
-
 # 11-Point AP From TP/FP Lists
 def _ap11_from_tp_fp(tp: np.ndarray, fp: np.ndarray, total_gts: int) -> float:
     if total_gts <= 0 or tp.size == 0:
         return 0.0
-    # Sanity: Lengths Must Match
     if tp.shape != fp.shape:
-        # Pad Shorter One With Zeros (Safety Net; Should Not Trigger With Correct Logic)
         n = max(tp.size, fp.size)
         if tp.size < n:
             tp = np.pad(tp, (0, n - tp.size))
         if fp.size < n:
             fp = np.pad(fp, (0, n - fp.size))
-
     tp_c = np.cumsum(tp)
     fp_c = np.cumsum(fp)
     recall = tp_c / float(total_gts)
     precision = tp_c / np.maximum(tp_c + fp_c, 1e-12)
-
     ap = 0.0
     for r in np.linspace(0, 1, 11):
-        mask = (recall >= r)
+        mask = recall >= r
         p_at_r = precision[mask].max() if mask.any() else 0.0
         ap += p_at_r
     return float(ap / 11.0)
 
-
-# Global 11-Point AP@IoU=0.5
+# Global AP@0.5
 def ap_at_05(preds: List[Dict], gts: List[Dict], iou_thr: float = 0.5) -> float:
-    # Flatten Predictions Into (Score, ImgId, Box)
     records = []
     total_gts = 0
     for i, (p, g) in enumerate(zip(preds, gts)):
@@ -63,8 +61,6 @@ def ap_at_05(preds: List[Dict], gts: List[Dict], iou_thr: float = 0.5) -> float:
     if not records:
         return 0.0
     records.sort(key=lambda x: x[0], reverse=True)
-
-    # Greedy One-To-One Matching
     matched = set()
     tp_list, fp_list = [], []
     all_gb = [np.asarray(g.get("boxes", np.zeros((0, 4), np.float32)), dtype=float) for g in gts]
@@ -82,22 +78,18 @@ def ap_at_05(preds: List[Dict], gts: List[Dict], iou_thr: float = 0.5) -> float:
             tp_list.append(1.0); fp_list.append(0.0)
         else:
             tp_list.append(0.0); fp_list.append(1.0)
-
     return _ap11_from_tp_fp(np.array(tp_list, float), np.array(fp_list, float), total_gts)
 
-
-# Size Bucket Thresholds (Pixels^2, COCO-Like)
+# Size Buckets (Pixels^2)
 _AREA_SMALL_MAX = 32 * 32
 _AREA_MED_MAX   = 96 * 96
 
-
-# Compute Box Area In XYXY
+# Compute Box Area
 def _box_area_xyxy(box: np.ndarray) -> float:
     x1, y1, x2, y2 = box
     return max(0.0, x2 - x1) * max(0.0, y2 - y1)
 
-
-# Build Subset Index Lists For Each Size Bin
+# Build Subset Indices By Size
 def _subset_indices_by_size(gt_boxes: List[np.ndarray]) -> Dict[str, List[Tuple[int, int]]]:
     bins = {"small": [], "medium": [], "large": []}
     for i, gb in enumerate(gt_boxes):
@@ -111,29 +103,23 @@ def _subset_indices_by_size(gt_boxes: List[np.ndarray]) -> Dict[str, List[Tuple[
                 bins["large"].append((i, j))
     return bins
 
-
-# AP@0.5 For A GT Subset (By Size)
+# AP@0.5 For Subset
 def _ap50_for_subset(preds_np: List[Dict[str, np.ndarray]],
                      gts_np: List[np.ndarray],
                      subset: List[Tuple[int, int]]) -> float:
     if len(subset) == 0:
         return 0.0
     subset_set = set(subset)
-
-    # Flatten Predictions
     records = []
     total_gts = len(subset)
     for img_id, p in enumerate(preds_np):
-        pb = p["boxes"]; ps = p["scores"]
+        pb, ps = p["boxes"], p["scores"]
         for j in range(len(ps)):
             records.append((float(ps[j]), img_id, pb[j]))
     if not records:
         return 0.0
     records.sort(key=lambda x: x[0], reverse=True)
-
-    # Greedy Matching Only Against Subset GTs
-    matched = set()
-    tp, fp = [], []
+    matched, tp, fp = set(), [], []
     for _, img_id, box in records:
         gb = gts_np[img_id]
         best_iou, best_j = 0.0, -1
@@ -148,28 +134,15 @@ def _ap50_for_subset(preds_np: List[Dict[str, np.ndarray]],
         if best_iou >= 0.5 and best_j >= 0:
             matched.add((img_id, best_j)); tp.append(1.0); fp.append(0.0)
         else:
-            tp.append(0.0); fp.append(1.0)   # Keep TP/FP Aligned
-
-    # Sanity Check
+            tp.append(0.0); fp.append(1.0)
     assert len(tp) == len(fp), f"TP/FP Length Mismatch: {len(tp)} vs {len(fp)}"
-
     return _ap11_from_tp_fp(np.array(tp, float), np.array(fp, float), total_gts)
 
-
-# Public API: Evaluate Model And Return (Metrics, Preds, GTs)
-def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, tag: str = "val"
-                        ) -> Tuple[Dict, List[Dict], List[Dict]]:
-    # Returns (Metrics Dict, Predictions, Ground Truths)
-    # Metrics Include ap50_global, ap_global (=ap50), ar_global, ap50_small/medium/large, And Counts
-    import torch  # Local Import To Keep Module Lightweight When Not Used
-
-    # Switch To Eval Mode
+# Evaluate Model And Return Metrics
+def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, tag: str = "val") -> Tuple[Dict, List[Dict], List[Dict]]:
+    import torch
     model.eval()
-
-    # Collect Predictions/GTs On CPU
-    preds_cpu: List[Dict] = []
-    gts_cpu: List[Dict] = []
-
+    preds_cpu, gts_cpu = [], []
     with torch.no_grad():
         for images, targets in data_loader:
             ims = [im.to(device) for im in images]
@@ -177,25 +150,17 @@ def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, 
             for o, t in zip(outs, targets):
                 boxes = o.get("boxes", torch.empty(0, 4))
                 scores = o.get("scores", torch.empty(0))
-                preds_cpu.append({
-                    "boxes": boxes.detach().cpu().numpy().astype(float),
-                    "scores": scores.detach().cpu().numpy().astype(float),
-                })
+                preds_cpu.append({"boxes": boxes.detach().cpu().numpy().astype(float),
+                                  "scores": scores.detach().cpu().numpy().astype(float)})
                 gb = t.get("boxes", torch.empty(0, 4))
                 gts_cpu.append({"boxes": gb.detach().cpu().numpy().astype(float)})
 
-    # Prepare NumPy Views
     preds_np = [{"boxes": p["boxes"], "scores": p["scores"]} for p in preds_cpu]
-    gts_np   = [g["boxes"] for g in gts_cpu]
+    gts_np = [g["boxes"] for g in gts_cpu]
 
-    # Global AP@0.5
-    ap50_global = ap_at_05(
-        preds=[{"boxes": p["boxes"], "scores": p["scores"]} for p in preds_cpu],
-        gts=[{"boxes": g} for g in gts_np],
-        iou_thr=0.5
-    )
+    ap50_global = ap_at_05([{"boxes": p["boxes"], "scores": p["scores"]} for p in preds_cpu],
+                           [{"boxes": g} for g in gts_np], iou_thr=0.5)
 
-    # Simple AR Estimate (Best Recall Over Score Sweep)
     total_gts = int(sum(len(g) for g in gts_np))
     records = []
     for img_id, p in enumerate(preds_np):
@@ -203,8 +168,7 @@ def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, 
             records.append((float(p["scores"][j]), img_id, p["boxes"][j]))
     records.sort(key=lambda x: x[0], reverse=True)
 
-    matched = set()
-    tp_marks = []
+    matched, tp_marks = set(), []
     for _, img_id, box in records:
         gb = gts_np[img_id]
         best_iou, best_j = 0.0, -1
@@ -220,16 +184,14 @@ def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, 
             tp_marks.append(0.0)
     ar_global = float(np.max(np.cumsum(np.array(tp_marks, float)) / max(1, total_gts))) if (total_gts > 0 and tp_marks) else 0.0
 
-    # Size-Bucket APs
     bins = _subset_indices_by_size(gts_np)
-    ap50_small  = _ap50_for_subset(preds_np, gts_np, bins["small"])
+    ap50_small = _ap50_for_subset(preds_np, gts_np, bins["small"])
     ap50_medium = _ap50_for_subset(preds_np, gts_np, bins["medium"])
-    ap50_large  = _ap50_for_subset(preds_np, gts_np, bins["large"])
+    ap50_large = _ap50_for_subset(preds_np, gts_np, bins["large"])
 
-    # Metrics Dictionary
     metrics = {
         "ap50_global": float(ap50_global),
-        "ap_global": float(ap50_global),   # Same As ap50 (Single IoU)
+        "ap_global": float(ap50_global),
         "ar_global": float(ar_global),
         "ap50_small": float(ap50_small),
         "ap50_medium": float(ap50_medium),
@@ -241,7 +203,7 @@ def evaluate_ap_by_size(model, data_loader, device, out_dir: str | None = None, 
         "num_large": len(bins["large"]),
     }
 
-    # JSON-Friendly Copies
     preds_list = [{"boxes": p["boxes"].tolist(), "scores": p["scores"].tolist()} for p in preds_np]
-    gts_list   = [{"boxes": g.tolist()} for g in gts_np]
+    gts_list = [{"boxes": g.tolist()} for g in gts_np]
+
     return metrics, preds_list, gts_list

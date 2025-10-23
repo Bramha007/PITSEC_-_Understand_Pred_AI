@@ -1,5 +1,7 @@
 # configs/det/test_cust.yaml
 
+# Uses Custom Anchors
+
 seed: 1337
 device: cuda
 out_dir: outputs/det/test_cust
@@ -30,10 +32,10 @@ train:
   weight_decay: 0.0005
   optimizer: sgd
   scheduler:
-    name:
+    name: null                           # No Scheduler For Quick Test
   amp: true
   log_every: 50
-  grad_clip: null
+  grad_clip: 0.0                          # No Gradient Clipping
 
 eval:
   run_during_train: true

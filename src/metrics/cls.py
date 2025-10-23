@@ -1,10 +1,16 @@
 # src/metrics/cls.py
 
-# Classification And Regression Metrics With Bucketed Summaries
+# Computes Classification And Regression Metrics With Optional Bucketed Evaluation
 
 from __future__ import annotations
+
+# Standard Library
 from typing import Dict, List, Sequence, Iterable, Optional
+
+# Third-Party
 import numpy as np
+
+# Local
 from src.constants.sizes import CLS_EDGES
 
 
@@ -12,13 +18,13 @@ from src.constants.sizes import CLS_EDGES
 def _bucket_names(edges: Sequence[float]) -> List[str]:
     names = []
     for i in range(len(edges) - 1):
-        names.append(f"{int(edges[i])}-{int(edges[i+1])}")
+        names.append(f"{int(edges[i])}-{int(edges[i + 1])}")
     names.append(f"{int(edges[-1])}+")
     return names
 
 
 def _bin_indices(values: np.ndarray, edges: Sequence[float]) -> np.ndarray:
-    # Right-Open Policy: [Left, Right)
+    # Right-Open Policy [Left, Right)
     return np.digitize(values, edges, right=False)
 
 
@@ -39,9 +45,7 @@ def bucket_accuracy(
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     sizes = np.asarray(img_sizes, dtype=float)
-
-    if edges is None:
-        edges = CLS_EDGES
+    edges = edges or CLS_EDGES
 
     bins = _bin_indices(sizes, edges)
     names = _bucket_names(edges)
@@ -49,8 +53,8 @@ def bucket_accuracy(
     out: Dict[str, float] = {}
     out["acc_global"] = top1_accuracy(y_true, y_pred)
 
-    for b in range(len(edges)):  # len(edges) Bins (Last Is >= edges[-1])
-        sel = (bins == b)
+    for b in range(len(edges)):
+        sel = bins == b
         if not np.any(sel):
             out[f"acc_{names[b]}"] = float("nan")
             out[f"count_{names[b]}"] = 0
@@ -68,7 +72,7 @@ def evaluate_cls_with_buckets(
     img_sizes: Sequence[float],
     edges: Sequence[float] | None = None,
 ) -> Dict[str, float]:
-    return bucket_accuracy(y_true, y_pred, img_sizes, edges=edges or CLS_EDGES)
+    return bucket_accuracy(y_true, y_pred, img_sizes, edges or CLS_EDGES)
 
 
 def compute_cls_metrics(
@@ -77,8 +81,7 @@ def compute_cls_metrics(
     img_sizes: Sequence[float],
     edges: Sequence[float] | None = None,
 ) -> Dict[str, float]:
-    # Backward-Compatible Alias
-    return evaluate_cls_with_buckets(y_true, y_pred, img_sizes, edges=edges or CLS_EDGES)
+    return evaluate_cls_with_buckets(y_true, y_pred, img_sizes, edges or CLS_EDGES)
 
 
 # Regression Metrics For (Short, Long)
@@ -87,13 +90,13 @@ def _safe_div(a: float, b: float) -> float:
 
 
 def _regression_metrics_1d(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
-    # Return MAE, MSE, RMSE, MAPE, SMAPE, R2, Pearson For 1D Arrays
     y_true = np.asarray(y_true).astype(np.float64)
     y_pred = np.asarray(y_pred).astype(np.float64)
     diff = y_pred - y_true
 
     if y_true.size == 0:
-        return {k: float("nan") for k in ["mae", "mse", "rmse", "mape", "smape", "r2", "pearson"]}
+        keys = ["mae", "mse", "rmse", "mape", "smape", "r2", "pearson"]
+        return {k: float("nan") for k in keys}
 
     mae = float(np.mean(np.abs(diff)))
     mse = float(np.mean(diff ** 2))
@@ -122,7 +125,6 @@ def _bucket_regression_stats(
     y_pred_1d: np.ndarray,
     edges: Sequence[float],
 ) -> Dict[str, float]:
-    # Compute Bucket Acc/MAE/RMSE And Counts Using Provided Edges
     edges = list(edges)
     names = _bucket_names(edges)
     t_bins = np.digitize(y_true_1d, edges, right=False)
@@ -132,7 +134,7 @@ def _bucket_regression_stats(
     out["bucket_acc_global"] = float(np.mean(t_bins == p_bins)) if len(t_bins) else 0.0
 
     for b in range(len(edges)):
-        sel = (t_bins == b)
+        sel = t_bins == b
         cnt = int(np.sum(sel))
         out[f"bucket_count_{names[b]}"] = cnt
         if cnt == 0:
@@ -155,7 +157,6 @@ def evaluate_regression_with_buckets(
     edges: Optional[Sequence[float]] = None,
     which: Optional[Iterable[str]] = None,
 ) -> Dict[str, float]:
-    # y_* Shape [N,2] Where [:,0]=Short, [:,1]=Long; Returns Per-Dim, Overall, And Bucketed Metrics
     y_true = np.asarray(y_true_2d, dtype=np.float64)
     y_pred = np.asarray(y_pred_2d, dtype=np.float64)
     if y_true.size == 0:
@@ -175,9 +176,9 @@ def evaluate_regression_with_buckets(
 
     # Overall (Macro Average)
     for k in ["mae", "mse", "rmse", "mape", "smape", "r2", "pearson"]:
-        out[f"overall_{k}"] = float(np.nanmean([out[f'short_{k}'], out[f'long_{k}']]))
+        out[f"overall_{k}"] = float(np.nanmean([out[f"short_{k}"], out[f"long_{k}"]]))
 
-    # Bucketed Metrics On Chosen Dimension
+    # Bucketed Metrics On Selected Dimension
     if want_bucket:
         dim = 0 if str(bucket_on).lower().startswith("s") else 1
         e = list(edges) if edges is not None else list(CLS_EDGES)
@@ -194,7 +195,6 @@ def compute_regression_metrics(
     bucket_on: str = "long",
     bucket_edges: Optional[Sequence[float]] = None,
 ) -> Dict[str, float]:
-    # Public API Wrapper
     return evaluate_regression_with_buckets(
         y_true_2d=y_true_2d,
         y_pred_2d=y_pred_2d,
@@ -209,10 +209,12 @@ def compute_regression_metrics_from_cfg(
     y_true_2d: Sequence[Sequence[float]],
     y_pred_2d: Sequence[Sequence[float]],
 ) -> Dict[str, float]:
-    # Config-Aware Wrapper (Reads cfg['metrics'])
-    m = (cfg.get("metrics") or {})
-    which = m.get("which") or ["mae", "mse", "rmse", "mape", "smape", "r2", "pearson", "bucket_acc", "bucket_mae", "bucket_rmse"]
-    bucket_on = (m.get("bucket_on") or "long")
+    m = cfg.get("metrics") or {}
+    which = m.get("which") or [
+        "mae", "mse", "rmse", "mape", "smape", "r2", "pearson",
+        "bucket_acc", "bucket_mae", "bucket_rmse"
+    ]
+    bucket_on = m.get("bucket_on") or "long"
     edges = m.get("bucket_edges") or CLS_EDGES
     return compute_regression_metrics(
         y_true_2d=y_true_2d,

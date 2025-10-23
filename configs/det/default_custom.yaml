@@ -1,21 +1,23 @@
 # configs/det/default_cust.yaml
 
+# Uses Custom Anchors
+
 seed: 1337
 device: cuda
-out_dir: outputs/det/default_cust
+out_dir: outputs/det/default_cust       # Output Directory For Checkpoints And Metrics
 
 cache:
-  torch_home: weights
+  torch_home: weights                    # Cache Directory For Pretrained Weights
 
 data:
-  root: data/sized_squares_unfilled
-  limit_per_split: null
+  root: data/sized_squares_unfilled      # Root Directory Containing Dataset
+  limit_per_split: null                   # No Limit, Use Full Dataset
 
 model:
   num_classes: 2
-  local_backbone_weights: weights/resnet50-0676ba61.pth
-  anchor_sizes: [[16], [32], [64], [128], [256]]
-  anchor_aspect_ratios:
+  local_backbone_weights: weights/resnet50-0676ba61.pth  # Local Backbone Weights
+  anchor_sizes: [[16], [32], [64], [128], [256]]        # Anchor Sizes Per Feature Map
+  anchor_aspect_ratios:                                   # Anchor Aspect Ratios Per Feature Map
     - [0.5, 1.0, 2.0]
     - [0.5, 1.0, 2.0]
     - [0.5, 1.0, 2.0]
@@ -23,22 +25,24 @@ model:
     - [0.5, 1.0, 2.0]
 
 train:
-  epochs: 5
-  batch_size: 4
+  epochs: 50
+  batch_size: 64
   num_workers: 4
   lr: 0.005
   weight_decay: 0.0005
   optimizer: sgd
   scheduler:
-    name:
-  amp: true
-  log_every: 50
-  grad_clip: null
+    name: step
+    step_size: 10
+    gamma: 0.1
+  amp: true                              # Enable Automatic Mixed Precision
+  log_every: 50                           # Logging Interval
+  grad_clip: 1.0                          # Gradient Clipping Norm
 
 eval:
-  run_during_train: true
-  batch_size: 1
+  run_during_train: true                  # Evaluate Model During Training
+  batch_size: 2
   num_workers: 2
 
 early_stopping:
-  monitor: ap50_global
+  monitor: ap50_global                    # Metric To Monitor For Early Stopping
