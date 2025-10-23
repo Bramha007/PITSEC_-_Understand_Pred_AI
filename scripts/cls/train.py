@@ -48,16 +48,25 @@ def _prepare_out_dir(cfg: dict) -> Path:
 def _build_model(cfg: dict, device: torch.device):
     from src.models import cls_resnet
     mcfg = cfg.get("model") or {}
+
+    # Model params
     out_dim = int(mcfg.get("out_dim", mcfg.get("num_classes", 2)))
     model_name = str(mcfg.get("model_name", mcfg.get("backbone", "resnet18")))
-    pretrained = bool(mcfg.get("pretrained", True))
     final_act = mcfg.get("final_act", None)
     p_drop = float(mcfg.get("p_drop", 0.0))
 
-    # Build Classifier
+    # Local backbone weights required for offline mode
+    local_weights = mcfg.get("local_backbone_weights", None)
+    if local_weights is None:
+        raise ValueError(f"Offline training requires 'local_backbone_weights' in the model config for {model_name}.")
+
+    # Build classifier
     model = cls_resnet.build_resnet_classifier(
-        model_name=model_name, out_dim=out_dim,
-        pretrained=pretrained, final_act=final_act, p_drop=p_drop
+        model_name=model_name,
+        out_dim=out_dim,
+        final_act=final_act,
+        p_drop=p_drop,
+        local_backbone_weights=local_weights
     )
     model.to(device)
     return model

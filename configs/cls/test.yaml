@@ -10,7 +10,7 @@ data:
 
 model:
   model_name: resnet18
-  pretrained: true                     # Use Pretrained Weights
+  local_backbone_weights: weights/resnet18-f37072fd.pth  # Path to offline backbone weights
   input_size: 224                      # Input Image Size
   out_dim: 2                           # Output Dimension (2 For Regression Targets)
 

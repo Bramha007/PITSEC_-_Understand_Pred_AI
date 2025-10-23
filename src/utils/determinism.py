@@ -11,7 +11,7 @@ import random
 import numpy as np
 import torch
 
-def SetSeed(seed: int, deterministic_cudnn: bool = True):
+def set_seed(seed: int, deterministic_cudnn: bool = True):
     # Set Global Random Seed For Python, NumPy, And PyTorch (CPU + GPU)
     if seed is None:
         return  # Skip If No Seed Provided
@@ -28,13 +28,13 @@ def SetSeed(seed: int, deterministic_cudnn: bool = True):
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True, warn_only=True)  # Warn Only If Non-Deterministic
 
-def MakeGenerator(seed: int) -> torch.Generator:
+def make_generator(seed: int) -> torch.Generator:
     # Create Torch Generator For DataLoader Or Other Randomized Operations
     g = torch.Generator()
     g.manual_seed(seed)
     return g
 
-def WorkerInitFn(worker_id: int):
+def worker_init_fn(worker_id: int):
     # Initialize DataLoader Worker With Unique Seed
     base = int(os.environ.get("DATA_WORKER_SEED", "0"))
     s = base + worker_id                             # Derive Worker-Specific Seed

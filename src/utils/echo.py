@@ -10,7 +10,7 @@ from typing import Dict, Iterable, Optional, Callable
 from tqdm import tqdm
 
 
-def _FmtVal(key: str, val) -> str:
+def _fmt_val(key: str, val) -> str:
     # Format Values Based On Key Type For Readable Logging
     if isinstance(val, float):
         if key == "lr":
@@ -21,7 +21,7 @@ def _FmtVal(key: str, val) -> str:
     return str(val)
 
 
-def EchoLine(
+def echo_line(
     tag: str,
     kv_pairs: Dict[str, object],
     order: Optional[Iterable[str]] = None,
@@ -31,6 +31,6 @@ def EchoLine(
     order = list(order or [])                        # Force Key Order For Selected Keys
     tail_keys = sorted([k for k in kv_pairs if k not in order])
     keys = order + tail_keys                         # Append Remaining Keys Sorted
-    fields = [f"{k}={_FmtVal(k, kv_pairs[k])}" for k in keys if k in kv_pairs]
+    fields = [f"{k}={_fmt_val(k, kv_pairs[k])}" for k in keys if k in kv_pairs]
     msg = f"{tag} | " + " | ".join(fields)          # Combine Tag With Key=Value Fields
     (writer or tqdm.write)(msg)                      # Default Writer Uses tqdm.write
