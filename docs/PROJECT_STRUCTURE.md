@@ -1,35 +1,20 @@
 # Project Structure
 
-This document provides an overview of the codebase layout for **UnderstandPredAI**.  
+This document provides an overview of the codebase layout for **PITSEC_-_Understand_Pred_AI**.  
 It was generated using the `tree` command for clarity.
 
 ```bash
-UnderstandPredAI
-|   .gitignore
-|   PROJECT_STRUCTURE.md
-|   pyproject.toml
-|   README.md
-|   requirements.txt
-|   
+PITSEC_-_Understand_Pred_AI
 +---.venv
-|
 +---configs
 |   +---cls
 |   |       default.yaml
-|   |       test.yaml
-|   |       
+|   |       test.yaml   
 |   +---det
 |   |       default.yaml
 |   |       default_cust.yaml
-|   |       default_cust_extr.yaml
 |   |       test.yaml
 |   |       test_cust.yaml
-|   |       test_cust_extr.yaml
-|   |       
-|   \---xai
-|           cls.yaml
-|           det.yaml
-|           
 +---data
 |   +---sized_rectangles_filled
 |   |   +---annotations
@@ -37,78 +22,62 @@ UnderstandPredAI
 |   |   |       1.xml
 |   |   |       2.xml
 |   |   |       ...
-|   |   |
 |   |   +---test
 |   |   |       0.bmp
 |   |   |       ...
-|   |   |
 |   |   +---train
 |   |   |       1.bmp
 |   |   |       ...
-|   |   |
 |   |   \---val
 |   |           2.bmp
 |   |           ...
-|   |
 |   +---sized_rectangles_unfilled
 |   |   +---annotations
 |   |   |       0.xml
 |   |   |       1.xml
 |   |   |       2.xml
 |   |   |       ...
-|   |   |
 |   |   +---test
 |   |   |       0.bmp
 |   |   |       ...
-|   |   |
 |   |   +---train
 |   |   |       1.bmp
 |   |   |       ...
-|   |   |
 |   |   \---val
 |   |           2.bmp
 |   |           ...
-|   |
 |   +---sized_squares_filled
 |   |   +---annotations
 |   |   |       0.xml
 |   |   |       1.xml
 |   |   |       2.xml
 |   |   |       ...
-|   |   |
 |   |   +---test
 |   |   |       0.bmp
 |   |   |       ...
-|   |   |
 |   |   +---train
 |   |   |       1.bmp
 |   |   |       ...
-|   |   |
 |   |   \---val
 |   |           2.bmp
 |   |           ...
-|   |
 |   \---sized_squares_unfilled
 |       +---annotations
 |       |       0.xml
 |       |       1.xml
 |       |       2.xml
 |       |       ...
-|       |
 |       +---test
 |       |       0.bmp
 |       |       ...
-|       |
 |       +---train
 |       |       1.bmp
 |       |       ...
-|       |
 |       \---val
 |               2.bmp
 |               ...
-|
 +---docs
-|       PITSEC - T3 - Pred AI.pdf
+|       PITSEC_-_T3_-_Pred_AI.pdf
 |
 +---outputs
 |
@@ -116,12 +85,12 @@ UnderstandPredAI
 |   |   check_data.py
 |   |
 |   +---cls
-|   |   |   eval.py
+|   |   |   test.py
 |   |   |   explain.py
-|   |   |   train.py
+|   |   |   test.py
 |   |
 |   +---det
-|       |   eval.py
+|       |   test.py
 |       |   explain.py
 |       |   train.py
 |
