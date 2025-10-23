@@ -1,22 +1,19 @@
 # configs/cls/test.yaml
 
-# Random Seed And Device
 seed: 1337
 device: cuda
+deterministic: true  # Enforces deterministic CUDA operations
 
-# Data Settings
 data:
   root: data/sized_squares_unfilled
-  limit_per_split: 25
+  limit_per_split: 25  # Limit dataset for quick testing
 
-# Model Settings
 model:
   model_name: resnet18
   pretrained: true
   input_size: 224
   out_dim: 2
 
-# Training Settings
 train:
   epochs: 2
   batch_size: 4
@@ -24,23 +21,25 @@ train:
   lr: 0.001
   weight_decay: 0.0001
   loss: mse
-  log_every: 50
+  log_every: 1         # Log every iteration for small batches
+  amp: true            # Enable automatic mixed precision
+  clip_grad_norm: 1.0  # Prevent large gradient spikes
+  scheduler:
+    name: step
+    step_size: 1
+    gamma: 0.9         # Quick LR decay for tiny test run
 
-# Validation Settings
 eval:
   batch_size: 4
   num_workers: 2
   run_during_train: true
 
-# Metric Settings
 metrics:
   which: [mae, mse, rmse, mape, smape, r2, pearson, bucket_acc, bucket_mae, bucket_rmse]
   bucket_on: long
   bucket_edges: [0, 32, 64, 96, 128, 160, 99999]
 
-# Early Stopping Settings
 early_stopping:
   monitor: overall_rmse
 
-# Output Directory
 out_dir: outputs/cls/test

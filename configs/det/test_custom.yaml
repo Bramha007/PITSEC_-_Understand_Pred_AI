@@ -4,16 +4,13 @@ seed: 1337
 device: cuda
 out_dir: outputs/det/test_cust
 
-# Cache Settings
 cache:
   torch_home: weights
 
-# Data Settings
 data:
   root: data/sized_squares_unfilled
   limit_per_split: null
 
-# Model Settings
 model:
   num_classes: 2
   local_backbone_weights: weights/resnet50-0676ba61.pth
@@ -25,7 +22,6 @@ model:
     - [0.5, 1.0, 2.0]
     - [0.5, 1.0, 2.0]
 
-# Training Settings
 train:
   epochs: 2
   batch_size: 4
@@ -39,12 +35,10 @@ train:
   log_every: 50
   grad_clip: null
 
-# Validation Settings
 eval:
   run_during_train: true
   batch_size: 1
   num_workers: 2
 
-# Early Stopping Settings
 early_stopping:
   monitor: ap50_global

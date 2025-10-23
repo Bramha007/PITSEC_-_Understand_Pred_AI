@@ -1,22 +1,18 @@
 # configs/cls/default.yaml
 
-# Random Seed And Device
 seed: 1337
 device: cuda
+deterministic: true  # Enforces deterministic CUDA operations
 
-# Data Settings
 data:
   root: data/sized_squares_unfilled
 
-# Model Settings
 model:
   model_name: resnet18
   pretrained: true
   input_size: 224
   out_dim: 2
-  # final_act: null
 
-# Training Settings
 train:
   epochs: 50
   batch_size: 64
@@ -25,22 +21,24 @@ train:
   weight_decay: 0.0001
   loss: mse
   log_every: 100
+  amp: true            # Enable automatic mixed precision
+  clip_grad_norm: 1.0  # Prevent large gradient spikes
+  scheduler:
+    name: step
+    step_size: 10
+    gamma: 0.1
 
-# Validation Settings
 eval:
   batch_size: 64
   num_workers: 4
   run_during_train: true
 
-# Metric Settings
 metrics:
   which: [mae, mse, rmse, mape, smape, r2, pearson, bucket_acc, bucket_mae, bucket_rmse]
   bucket_on: long
   bucket_edges: [0, 32, 64, 96, 128, 160, 99999]
 
-# Early Stopping Settings
 early_stopping:
   monitor: overall_rmse
 
-# Output Directory
 out_dir: outputs/cls/default

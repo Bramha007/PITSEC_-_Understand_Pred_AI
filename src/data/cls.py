@@ -1,4 +1,5 @@
 # src/data/cls.py
+
 # Classification/Regression Dataset From VOC Boxes With Optional Transforms
 
 from typing import List, Tuple, Optional
@@ -14,7 +15,7 @@ from src.data.voc import parse_voc
 class SquaresCLSData(Dataset):
     def __init__(
         self,
-        pairs: List[Tuple[str, str]],
+        pairs: list[tuple[str, str]],
         canvas: int = 224,
         train: bool = False,
         use_padding_canvas: bool = True,
@@ -31,8 +32,6 @@ class SquaresCLSData(Dataset):
 
     def __getitem__(self, idx: int):
         img_path, xml_path = self.pairs[idx]
-
-        # Load Image
         img = Image.open(img_path).convert("RGB")
         w, h = img.size
 
@@ -45,9 +44,9 @@ class SquaresCLSData(Dataset):
             off_x = (self.canvas - new_w) // 2
             off_y = (self.canvas - new_h) // 2
             canvas.paste(img_r, (off_x, off_y))
-            img_t = F.to_tensor(canvas)  # [0,1]
+            img_t = F.to_tensor(canvas)
         else:
-            img_t = F.to_tensor(img.resize((self.canvas, self.canvas)))  # [0,1]
+            img_t = F.to_tensor(img.resize((self.canvas, self.canvas)))
 
         # Extract Target From First GT Box
         ann = parse_voc(xml_path)
@@ -59,11 +58,12 @@ class SquaresCLSData(Dataset):
             short, long = 0.0, 0.0
         y = torch.tensor([short, long], dtype=torch.float32)
 
-        # Apply Optional Transforms
+        # Apply Optional Transforms (CLSTransform handles img or img+label)
         if self.transforms is not None:
-            try:
-                img_t, y = self.transforms(img_t, y)
-            except TypeError:
-                img_t = self.transforms(img_t)
+            if hasattr(self.transforms, "__call__"):
+                if self.train:
+                    img_t, y = self.transforms(img_t, y)
+                else:
+                    img_t = self.transforms(img_t)
 
         return img_t, y

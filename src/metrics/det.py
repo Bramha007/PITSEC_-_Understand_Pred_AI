@@ -1,6 +1,6 @@
 # src/metrics/det.py
+
 # Detection Metrics: Global AP@0.5, AR, And Size-Bucket AP
-# Numpy-First Implementation Compatible With Torchvision-Style Outputs
 
 from __future__ import annotations
 from typing import Dict, List, Tuple

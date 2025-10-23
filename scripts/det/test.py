@@ -1,15 +1,19 @@
 # scripts/det/test.py
-# Run Faster R-CNN On Squares Dataset (Test Split).
-# Deterministic Eval With AP/AR Metrics And CSV/JSON Exports.
+
+# Run Faster R-CNN On Squares Dataset (Test Split)
 
 from __future__ import annotations
+
+# Standard Library
 import argparse, csv, json, os
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Third-Party
 import torch, yaml
 from torch.utils.data import DataLoader
 
+# Local Modules
 from src.utils.echo import echo_line
 from src.utils.determinism import set_seed, worker_init_fn, make_generator
 from src.data.voc import paired_image_xml_list
@@ -18,57 +22,52 @@ from src.transforms.det import Compose, ToTensor, ClampBoxes
 from src.models.det_fasterrcnn import build_fasterrcnn
 from src.metrics.det import evaluate_ap_by_size
 
-
 # Load YAML Config
 def _load_cfg(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-
-# Build Dataloader For Test Split
+# Build Test DataLoader
 def _build_test_loader(cfg: dict, gen: torch.Generator):
     data = cfg.get("data", {}) or {}
-    root = Path(data.get("root", "."))  # expects test/, annotations/
+    root = Path(data.get("root", "."))  # expects test/ and annotations/
     limit = data.get("limit_per_split", None)
 
-    img_dir = root / "test"
-    ann_dir = root / "annotations"
+    img_dir, ann_dir = root / "test", root / "annotations"
     pairs = paired_image_xml_list(img_dir, ann_dir, limit=limit)
 
     tfm = Compose([ToTensor(), ClampBoxes()])
     ds = SquaresDetectionDataset(pairs, transforms=tfm)
 
-    ev = cfg.get("eval", {}) or {}
+    ev_cfg = cfg.get("eval", {}) or {}
     dl = DataLoader(
         ds,
-        batch_size=int(ev.get("batch_size", 1)),
+        batch_size=int(ev_cfg.get("batch_size", 1)),
         shuffle=False,
-        num_workers=int(ev.get("num_workers", 2)),
+        num_workers=int(ev_cfg.get("num_workers", 2)),
         collate_fn=collate_fn,
         pin_memory=True,
         drop_last=False,
-        worker_init_fn=worker_init_fn,  # per-worker seed fixup
-        generator=gen,                  # deterministic sampling order
+        worker_init_fn=worker_init_fn,
+        generator=gen,
     )
     return ds, dl
 
-
-# Build Model (Mirrors Train)
+# Build Model
 def _build_model(cfg: dict, device: torch.device):
-    m = cfg.get("model", {}) or {}
+    mcfg = cfg.get("model", {}) or {}
     model = build_fasterrcnn(
-        num_classes=int(m.get("num_classes", 2)),
-        anchor_sizes=m.get("anchor_sizes", None),
-        anchor_aspect_ratios=m.get("anchor_aspect_ratios", None),
-        weights=m.get("weights", None),
-        trainable_backbone_layers=m.get("trainable_backbone_layers", None),
-        local_backbone_weights=m.get("local_backbone_weights", None),
+        num_classes=int(mcfg.get("num_classes", 2)),
+        anchor_sizes=mcfg.get("anchor_sizes", None),
+        anchor_aspect_ratios=mcfg.get("anchor_aspect_ratios", None),
+        weights=mcfg.get("weights", None),
+        trainable_backbone_layers=mcfg.get("trainable_backbone_layers", None),
+        local_backbone_weights=mcfg.get("local_backbone_weights", None),
     )
     model.to(device)
     return model
 
-
-# Match Train-Side Metrics Header
+# Build Metrics Header
 def _header_from_metrics(m: Dict[str, float]) -> List[str]:
     header = ["ap50_global", "ap_global", "ar_global"]
     for prefix in ["ap50_", "ap_", "ar_"]:
@@ -76,8 +75,7 @@ def _header_from_metrics(m: Dict[str, float]) -> List[str]:
         header.extend(keys)
     return header
 
-
-# Resolve Weights: CLI > out_dir/det_fasterrcnn.best.ckpt > out_dir/det_fasterrcnn.last.ckpt
+# Resolve Checkpoint Weights
 def _resolve_weights(cfg: dict, cli_weights: Optional[str]) -> Optional[Path]:
     if cli_weights:
         p = Path(cli_weights)
@@ -88,51 +86,52 @@ def _resolve_weights(cfg: dict, cli_weights: Optional[str]) -> Optional[Path]:
         p = base / name
         if p.exists():
             return p
-    return None  # allow running with randomly initialized weights if nothing found
+    return None  # fallback to random init
 
-
+# Main
 def main():
-    # Args
+    # Parse Args
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", type=str, required=True)
-    ap.add_argument("--weights", type=str, default=None)   # .ckpt or raw state dict .pth/.pt
-    ap.add_argument("--out_dir", type=str, default=None)   # optional override
+    ap.add_argument("--cfg", type=str, required=True)
+    ap.add_argument("--weights", type=str, default=None)
+    ap.add_argument("--out_dir", type=str, default=None)
     args = ap.parse_args()
 
-    # Config + Determinism
-    cfg = _load_cfg(args.config)
+    # Load Config + Seed
+    cfg = _load_cfg(args.cfg)
     seed = int(cfg.get("seed", 42))
     os.environ["DATA_WORKER_SEED"] = str(seed)
     set_seed(seed)
     gen = make_generator(seed)
+
     device = torch.device(cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu"))
 
-    # Output Dir
+    # Output Directory
     out_dir = Path(args.out_dir or cfg.get("out_dir", "outputs/det/test"))
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "config.used.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
 
-    # Data (Implicit Test Split)
+    # DataLoader
     _, dl = _build_test_loader(cfg, gen)
 
-    # Model
+    # Build Model
     model = _build_model(cfg, device)
 
-    # Weights (Best/Last/Direct SD); optional to allow dry runs
+    # Load Weights
     weights_path = _resolve_weights(cfg, args.weights)
-    if weights_path is not None:
+    if weights_path:
         echo_line("DET_TEST_LOAD", {"weights": str(weights_path)})
         state = torch.load(weights_path, map_location="cpu")
-        sd = state["model"] if isinstance(state, dict) and isinstance(state.get("model"), dict) else state
+        sd = state["model"] if isinstance(state, dict) and "model" in state else state
         missing, unexpected = model.load_state_dict(sd, strict=False)
         if missing:
             echo_line("DET_TEST_SD_MISSING", {"n": len(missing), "keys": missing[:8] + (["..."] if len(missing) > 8 else [])})
         if unexpected:
             echo_line("DET_TEST_SD_UNEXPECTED", {"n": len(unexpected), "keys": unexpected[:8] + (["..."] if len(unexpected) > 8 else [])})
     else:
-        echo_line("DET_TEST_LOAD", {"weights": "NONE (USING RANDOM INIT)"} )
+        echo_line("DET_TEST_LOAD", {"weights": "NONE (RANDOM INIT)"})
 
-    # Eval
+    # Evaluate
     tag = "test"
     metrics, _, _ = evaluate_ap_by_size(model, dl, device, out_dir=str(out_dir), tag=tag)
     echo_line("DET_TEST",
@@ -149,7 +148,6 @@ def main():
         w = csv.writer(f)
         w.writerow(header)
         w.writerow([f"{float(metrics.get(k, float('nan'))):.6f}" for k in header])
-
 
 if __name__ == "__main__":
     main()
