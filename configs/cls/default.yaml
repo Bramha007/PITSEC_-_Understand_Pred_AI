@@ -5,13 +5,13 @@ device: cuda
 deterministic: true  # Enforces Deterministic CUDA Operations
 
 data:
-  root: data/sized_squares_unfilled  # Root Directory Containing Dataset
+  root: data/sized_rectangles_unfilled  # Root Directory Containing Dataset
 
 model:
   model_name: resnet18
-  local_backbone_weights: weights/resnet18-f37072fd.pth  # Path to offline backbone weights
-  input_size: 224                      # Input Image Size
-  out_dim: 2                           # Output Dimension (2 For Regression Targets)
+  local_backbone_weights: weights/resnet18-f37072fd.pth
+  input_size: 224
+  out_dim: 2
 
 train:
   epochs: 50
@@ -21,8 +21,8 @@ train:
   weight_decay: 0.0001
   loss: mse
   log_every: 100
-  amp: true                             # Enable Automatic Mixed Precision
-  clip_grad_norm: 1.0                   # Prevent Large Gradient Spikes
+  amp: true
+  clip_grad_norm: 1.0
   scheduler:
     name: step
     step_size: 10
@@ -31,14 +31,22 @@ train:
 eval:
   batch_size: 64
   num_workers: 4
-  run_during_train: true                # Evaluate Model During Training
+  run_during_train: true
 
 metrics:
   which: [mae, mse, rmse, mape, smape, r2, pearson, bucket_acc, bucket_mae, bucket_rmse]
   bucket_on: long
-  bucket_edges: [0, 32, 64, 96, 128, 160, 99999]  # Define Buckets For Error Metrics
+  bucket_edges: [0, 32, 64, 96, 128, 160, 99999]
 
 early_stopping:
-  monitor: overall_rmse                  # Metric To Monitor For Early Stopping
+  monitor: overall_rmse
 
-out_dir: outputs/cls/default            # Output Directory For Checkpoints And Metrics
+out_dir: outputs/cls/default
+
+test:
+  weights: 
+
+explain:
+  out_dir: outputs/cls/xai_test
+  weights: 
+  methods: [gradcam, ig, occlusion]

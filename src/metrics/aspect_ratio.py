@@ -1,4 +1,4 @@
-# src/metrics/ar.py
+# src/metrics/aspect_ratio.py
 
 # Computes AP@0.5 Per Aspect-Ratio (AR) Bucket For Object Detection Models
 # Buckets Images By GT Aspect Ratios And Evaluates Detection Performance

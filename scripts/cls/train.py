@@ -286,7 +286,7 @@ def main():
     out_dir = _prepare_out_dir(cfg)
 
     # Deterministic Training If Requested
-    det_flag = bool((cfg.get("train", {}) or {}).get("deterministic", True))
+    det_flag = bool(cfg.get("train", {}).get("deterministic", True))
     if det_flag:
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
         torch.use_deterministic_algorithms(True)
@@ -309,14 +309,20 @@ def main():
     ds_tr, ds_ev, dl_tr, dl_ev = _build_loaders(cfg, gen)
 
     # AMP Scaler And Gradient Clipping
-    scaler = GradScaler() if ((cfg.get("train", {}) or {}).get("amp", False) and device.type == "cuda") else None
-    max_norm = float((cfg.get("train", {}) or {}).get("clip_grad_norm", 0.0)) or None
+    scaler = GradScaler() if (cfg.get("train", {}).get("amp", False) and device.type == "cuda") else None
+    max_norm = float(cfg.get("train", {}).get("clip_grad_norm", 0.0)) or None
 
     # Training Loop Configuration
-    epochs = int((cfg.get("train", {}) or {}).get("epochs", 10))
-    log_every = int((cfg.get("train", {}) or {}).get("log_every", 10))
-    best_val = float("inf")
-    best_file = out_dir / "best_model.pt"
+    epochs = int(cfg.get("train", {}).get("epochs", 10))
+    log_every = int(cfg.get("train", {}).get("log_every", 10))
+
+    # Pick monitor from YAML
+    monitor_metric = cfg.get("early_stopping", {}).get("monitor", "val_loss")
+
+    # Initialize tracking
+    best_val = None
+    best_models = []
+    global_best_val = None
     last_file = out_dir / "last_model.pt"
 
     # Loop Over Epochs
@@ -328,13 +334,29 @@ def main():
         val_stats = evaluate(model, dl_ev, device, out_dir, cfg)
 
         # Determine Monitor Value For Best Model
-        monitor_val, direction = _pick_monitor_value(cfg.get("monitor", "val_loss"), val_stats, train_loss)
+        monitor_val, direction = _pick_monitor_value(monitor_metric, val_stats, train_loss)
 
-        # Save Best Model
-        if monitor_val is not None and ((direction == "min" and monitor_val < best_val) or (direction == "max" and monitor_val > best_val)):
-            best_val = monitor_val
-            torch.save(model.state_dict(), best_file)
-            echo_line("INFO", {"epoch": epoch, "best_val": best_val, "saved": str(best_file)})
+        # Save Multiple Best Models And Global Best
+        if monitor_val is not None:
+            is_new_best = (best_val is None) or \
+                          (direction == "min" and monitor_val < best_val) or \
+                          (direction == "max" and monitor_val > best_val)
+            if is_new_best:
+                best_val = monitor_val
+                best_idx = len(best_models) + 1
+                best_file = out_dir / f"best_{best_idx}.pt"
+                torch.save(model.state_dict(), best_file)
+                best_models.append(str(best_file))
+                echo_line("INFO", {"epoch": epoch, "best_val": best_val, "saved": str(best_file)})
+
+                # Update global best
+                if global_best_val is None or \
+                   (direction == "min" and monitor_val < global_best_val) or \
+                   (direction == "max" and monitor_val > global_best_val):
+                    global_best_val = monitor_val
+                    global_best_file = out_dir / "best_global.pt"
+                    torch.save(model.state_dict(), global_best_file)
+                    echo_line("INFO", {"epoch": epoch, "global_best_val": global_best_val, "saved_global": str(global_best_file)})
 
         # Save Last Model
         torch.save(model.state_dict(), last_file)
@@ -344,7 +366,13 @@ def main():
         if scheduler:
             scheduler.step()
 
-    echo_line("INFO", {"msg": "Training Completed", "best_val": best_val, "out_dir": str(out_dir)})
+    echo_line("INFO", {
+        "msg": "Training Completed",
+        "best_val": best_val,
+        "global_best_val": global_best_val,
+        "best_models": best_models,
+        "out_dir": str(out_dir)
+    })
 
 
 # Entry Point

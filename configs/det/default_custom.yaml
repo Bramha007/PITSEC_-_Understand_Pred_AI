@@ -10,7 +10,7 @@ cache:
   torch_home: weights                    # Cache Directory For Pretrained Weights
 
 data:
-  root: data/sized_squares_unfilled      # Root Directory Containing Dataset
+  root: data/sized_rectangles_unfilled      # Root Directory Containing Dataset
   limit_per_split: null                   # No Limit, Use Full Dataset
 
 model:

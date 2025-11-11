@@ -10,7 +10,7 @@ cache:
   torch_home: weights
 
 data:
-  root: data/sized_squares_unfilled
+  root: data/sized_rectangles_unfilled
   limit_per_split: null
 
 model:

@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 # Standard Library
-import os
-import argparse, csv, json
+import os, csv, json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from contextlib import nullcontext
+import argparse
 
 # Third-Party
 import torch
@@ -36,8 +36,8 @@ def _load_cfg(path: str) -> dict:
 
 
 # Prepare Output Directory And Save Config
-def _prepare_out_dir(cfg: dict, cli_out: Optional[str] = None) -> Path:
-    out_dir = Path(cli_out or cfg.get("out_dir", "outputs/cls/test"))
+def _prepare_out_dir(cfg: dict) -> Path:
+    out_dir = Path(cfg.get("out_dir", "outputs/cls/test"))
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "config.used.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
     return out_dir
@@ -53,13 +53,15 @@ def _build_model(cfg: dict, device: torch.device):
     final_act = mcfg.get("final_act", None)
     p_drop = float(mcfg.get("p_drop", 0.0))
 
-    # Build Classifier
+    local_weights = (cfg.get("model") or {}).get("local_backbone_weights")
+    if local_weights is None:
+        raise ValueError("Offline testing requires 'local_backbone_weights' in model config.")
     model = cls_resnet.build_resnet_classifier(
         model_name=model_name,
         out_dim=out_dim,
-        pretrained=pretrained,
         final_act=final_act,
-        p_drop=p_drop
+        p_drop=p_drop,
+        local_backbone_weights=local_weights
     )
     model.to(device)
     return model
@@ -71,20 +73,33 @@ def _bucket_names_from_cfg(cfg: dict):
     return [f"{int(edges[i])}-{int(edges[i+1])}" for i in range(len(edges)-1)] + [f"{int(edges[-1])}+"]
 
 
-# Resolve Weights File From CLI Or Default
-def _resolve_weights(cfg: dict, cli_weights: Optional[str]) -> Path:
-    if cli_weights:
-        p = Path(cli_weights)
-        if p.exists():
-            return p
-
+# Resolve Weights File From Config
+def _resolve_weights(cfg: dict) -> Path:
     base = Path(cfg.get("out_dir", "outputs/cls/test"))
-    for name in ("best_model.pt", "last_model.pt"):
-        p = base / name
+
+    # Use config-specified weights if present
+    cfg_weights = (cfg.get("test") or {}).get("weights")
+    if cfg_weights:
+        p = Path(cfg_weights)
+        if not p.is_absolute():
+            p = base / cfg_weights
         if p.exists():
             return p
 
-    raise FileNotFoundError(f"No Weights Found At {cli_weights or base}")
+    # Default priority: global best -> last model -> latest best_i
+    global_best = base / "best_global.pt"
+    if global_best.exists():
+        return global_best
+
+    last_model = base / "last_model.pt"
+    if last_model.exists():
+        return last_model
+
+    best_files = sorted(base.glob("best_*.pt"))
+    if best_files:
+        return best_files[-1]
+
+    raise FileNotFoundError(f"No weights found at {cfg_weights or base}")
 
 
 # Automatic Mixed Precision Context
@@ -96,14 +111,11 @@ def _amp_ctx(enabled: bool, device: torch.device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", required=True, help="YAML Config File Path")
-    parser.add_argument("--weights", type=str, default=None, help="Optional Weights File")
-    parser.add_argument("--out_dir", type=str, default=None, help="Optional Output Directory")
-    parser.add_argument("--seed", type=int, default=42, help="Random Seed For Determinism")
     args = parser.parse_args()
 
     # Load Configuration And Set Seed
     cfg = _load_cfg(args.cfg)
-    seed = args.seed if args.seed is not None else int(cfg.get("seed", 1337))
+    seed = int(cfg.get("seed", 1337))
     set_seed(seed)
     gen = make_generator(seed)
 
@@ -114,7 +126,7 @@ def main():
         torch.use_deterministic_algorithms(True)
 
     # Prepare Output Directory
-    out_dir = _prepare_out_dir(cfg, args.out_dir)
+    out_dir = _prepare_out_dir(cfg)
 
     # Build Dataset And DataLoader
     root = Path((cfg.get("data") or {}).get("root", "."))
@@ -140,7 +152,7 @@ def main():
 
     # Build Model And Load Weights
     model = _build_model(cfg, device)
-    weights = _resolve_weights(cfg, args.weights)
+    weights = _resolve_weights(cfg)
     echo_line("CLS_TEST_LOAD", {"weights": str(weights)})
     state = torch.load(weights, map_location=device)
     sd = state.get("model", state) if isinstance(state, dict) else state
@@ -187,7 +199,7 @@ def main():
     # Save One-Row Metrics CSV With Bucketed Values
     bnames = _bucket_names_from_cfg(cfg)
     header = ["overall_mae", "overall_rmse", "bucket_acc_global"] + \
-             [f"bucket_mae_{bn}" for bn in bnames] + [f"bucket_rmse_{bn}" for bn in bnames]
+            [f"bucket_mae_{bn}" for bn in bnames] + [f"bucket_rmse_{bn}" for bn in bnames]
     with (out_dir / "metrics.csv").open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(header)

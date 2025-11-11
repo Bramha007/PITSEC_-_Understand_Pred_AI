@@ -90,8 +90,8 @@ def check_cls(images_dir: str, ann_dir: str, num: int, batch_size: int, canvas: 
 def main():
     parser = argparse.ArgumentParser(description="Minimal Dataset Sanity Check")
     parser.add_argument("--task", choices=["det", "cls"], default=None, help="Which Pipeline To Check. If Not Set, Runs Both (det Then cls).")
-    parser.add_argument("--images", default="data/sized_squares_unfilled/train", help="Image Dir To Inspect")
-    parser.add_argument("--ann", default="data/sized_squares_unfilled/annotations", help="VOC XML Dir To Inspect")
+    parser.add_argument("--images", default="data/sized_rectangles_unfilled/train", help="Image Dir To Inspect")
+    parser.add_argument("--ann", default="data/sized_rectangles_unfilled/annotations", help="VOC XML Dir To Inspect")
     parser.add_argument("--num", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--canvas", type=int, default=224, help="Classification Canvas (Only For --task cls)")

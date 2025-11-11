@@ -15,6 +15,7 @@ PITSEC_-_Understand_Pred_AI
 |   |       default_cust.yaml
 |   |       test.yaml
 |   |       test_cust.yaml
+|
 +---data
 |   +---sized_rectangles_filled
 |   |   +---annotations
@@ -78,70 +79,57 @@ PITSEC_-_Understand_Pred_AI
 |               ...
 +---docs
 |       PITSEC_-_T3_-_Pred_AI.pdf
-|
+|       PROJECT_STRUCTURE.md
+|       README.md
 +---outputs
-|
 +---scripts
 |   |   check_data.py
-|   |
 |   +---cls
-|   |   |   test.py
 |   |   |   explain.py
 |   |   |   test.py
-|   |
+|   |   |   train.py
 |   +---det
-|       |   test.py
-|       |   explain.py
-|       |   train.py
+|   |   |   explain.py
+|   |   |   test.py
+|   |   |   train.py
+|   |
 |
 \---src
-    |   __init__.py
-    |
-    +---constants
-    |   |   norms.py
-    |   |   sizes.py
-    |   |   __init__.py
-    |
-    +---data
-    |   |   cls.py
-    |   |   det.py
-    |   |   split.py
-    |   |   voc.py
-    |   |   __init__.py
-    |
-    +---metrics
-    |   |   ar.py
-    |   |   cls.py
-    |   |   det.py
-    |   |   __init__.py
-    |
-    +---models
-    |   |   cls_resnet.py
-    |   |   det_backbone.pth
-    |   |   det_fasterrcnn.py
-    |   |   __init__.py
-    |
-    +---transforms
-    |   |   cls.py
-    |   |   det.py
-    |
-    +---utils
-    |   |   config.py
-    |   |   determinism.py
-    |   |   echo.py
-    |   |   __init__.py
-    |
-    +---xai
-        |   __init__.py
-        |
-        +---core
-        |       attributes.py
-        |       gradcam.py
-        |       overlays.py
-        |       roi_ops.py
-        |       types.py
-        |       __init__.py
-        |
-        \---reports
-                pack_index.py
-                __init__.py
+|   +---constants
+|   |   |   norms.py
+|   |   |   sizes.py
+|   |
+|   +---data
+|   |   |   cls.py
+|   |   |   det.py
+|   |   |   split.py
+|   |   |   voc.py
+|   |
+|   +---metrics
+|   |   |   ar.py
+|   |   |   cls.py
+|   |   |   det.py
+|   |
+|   +---models
+|   |   |   cls_resnet.py
+|   |   |   det_backbone.pth
+|   |   |   det_fasterrcnn.py
+|   |
+|   +---transforms
+|   |   |   cls.py
+|   |   |   det.py
+|   |
+|   +---utils
+|   |   |   determinism.py
+|   |   |   echo.py
+|   |
+|   +---xai
+|   |   |   gradcam.py
+|   |   |   integrated_gradients.py
+|   |   |   occlusion.py
+|   |   |   rise.py
+|   |   |   scorecam.py
+|   |   |   utils_vis.py
+|   |
+|
+```
