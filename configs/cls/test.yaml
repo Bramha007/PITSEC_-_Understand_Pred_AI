@@ -2,11 +2,12 @@
 
 # Random Seed And Device
 seed: 1337
-device: cuda
+device: cpu
 
 # Data Settings
 data:
-  root: data/sized_squares_unfilled
+  # root: data/sized_squares_unfilled
+  root: E:/WPT-Project/Data/sized_squares_unfilled
   limit_per_split: 25
 
 # Model Settings
