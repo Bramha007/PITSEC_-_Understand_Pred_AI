@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import torch
 
 def show_prediction(image_tensor, pred, gt=None, score_thr=0.5, save_path=None):
     img = image_tensor.permute(1,2,0).cpu().numpy()

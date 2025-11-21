@@ -17,15 +17,19 @@ DATA_ROOT   = r"E:\WPT-Project\Data\sized_squares_filled"   # adjust folder name
 IMG_DIR_TRAIN = fr"{DATA_ROOT}\train"
 IMG_DIR_VAL   = fr"{DATA_ROOT}\val"
 IMG_DIR_TEST  = fr"{DATA_ROOT}\test"
+IMG_DIR_TEST_RECT = fr'E:\WPT-Project\Data\sized_rectangles_filled\test'  # (not used here)
+
 
 # ALL XMLs live here (shared)
 XML_DIR_ALL   = fr"{DATA_ROOT}\annotations"
+XML_DIR_ALL_RECT   = fr'E:\WPT-Project\Data\sized_rectangles_filled\annotations'  # (not used here)
+
 
 OUTPUT_DIR = "outputs"
 SAVE_CKPT  = os.path.join(OUTPUT_DIR, "resnet_cls.pt")
 
 BATCH_SIZE = 64          # CPU okay with 224 canvas? lower if needed
-EPOCHS     = 12
+EPOCHS     = 2
 LR         = 1e-3
 SEED       = 42
 
@@ -49,11 +53,18 @@ def main():
     # Pair splits
     train_pairs_all = paired_image_xml_list(IMG_DIR_TRAIN, XML_DIR_ALL)
     val_pairs_all   = paired_image_xml_list(IMG_DIR_VAL,   XML_DIR_ALL)
-    test_pairs_all  = paired_image_xml_list(IMG_DIR_TEST,  XML_DIR_ALL)
+    test_pairs_all  = paired_image_xml_list(IMG_DIR_TEST_RECT,  XML_DIR_ALL_RECT)
 
     train_pairs = subsample_pairs(train_pairs_all, F_TRAIN, seed=SEED)
     val_pairs   = subsample_pairs(val_pairs_all,   F_VAL,   seed=SEED)
     test_pairs  = subsample_pairs(test_pairs_all,  F_TEST,  seed=SEED)
+
+    print(f"Train pairs: {len(train_pairs)} / {len(train_pairs_all)} "
+          f"(frac={F_TRAIN})")
+    print(f"Val   pairs: {len(val_pairs)} / {len(val_pairs_all)} "
+          f"(frac={F_VAL})")
+    print(f"Test  pairs: {len(test_pairs)} / {len(test_pairs_all)} "
+          f"(frac={F_TEST})")
 
     # Streaming datasets (build index only)
     ds_train = SquaresClassificationDatasetStream(train_pairs, canvas=CANVAS, train=True,  use_padding_canvas=USE_PAD)
@@ -66,6 +77,8 @@ def main():
     train_loader = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     val_loader   = DataLoader(ds_val,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     test_loader  = DataLoader(ds_test,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+
+    
 
     model = build_resnet_classifier(num_classes=5).to(device)
     # (optional tiny-class boost if needed later)

@@ -17,22 +17,24 @@ DATA_ROOT   = r"E:\WPT-Project\Data\sized_squares_filled"   # adjust folder name
 IMG_DIR_TRAIN = fr"{DATA_ROOT}\train"
 IMG_DIR_VAL   = fr"{DATA_ROOT}\val"
 IMG_DIR_TEST  = fr"{DATA_ROOT}\test"
+IMG_DIR_TEST_RECT = fr'E:\WPT-Project\Data\sized_rectangles_filled\test'  # (not used here)
 
 # ALL XMLs live here (shared)
 XML_DIR_ALL   = fr"{DATA_ROOT}\annotations"
+XML_DIR_ALL_RECT   = fr'E:\WPT-Project\Data\sized_rectangles_filled\annotations'  # (not used here)
 
 
 OUTPUT_DIR = "outputs"
 SAVE_CKPT  = os.path.join(OUTPUT_DIR, "fasterrcnn_squares_cpu.pt")
 
-EPOCHS      = 6
+EPOCHS      = 2
 BATCH_SIZE  = 1      # CPU
 LR          = 0.003
 SEED        = 42
 NUM_WORKERS = 0
 
 # Fractions (grow these over time: 0.05 → 0.1 → 0.25 → 0.5 → 1.0)
-F_TRAIN = 0.001   # begin with 5% of train
+F_TRAIN = 0.0005   # begin with 5% of train
 F_VAL   = 0.005
 F_TEST  = 0.005
 MAX_TRAIN_ITEMS = None  # e.g., 50000 to hard-cap
@@ -56,7 +58,7 @@ def main():
     # Pair each split against the single annotations folder
     train_pairs_all = paired_image_xml_list(IMG_DIR_TRAIN, XML_DIR_ALL)
     val_pairs_all   = paired_image_xml_list(IMG_DIR_VAL,   XML_DIR_ALL)
-    test_pairs_all  = paired_image_xml_list(IMG_DIR_TEST,  XML_DIR_ALL)
+    test_pairs_all  = paired_image_xml_list(IMG_DIR_TEST_RECT,  XML_DIR_ALL_RECT)
 
     # Subsample deterministically
     train_pairs = subsample_pairs(train_pairs_all, F_TRAIN, seed=SEED, max_items=MAX_TRAIN_ITEMS)

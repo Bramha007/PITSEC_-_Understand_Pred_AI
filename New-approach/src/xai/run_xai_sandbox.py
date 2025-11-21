@@ -11,7 +11,8 @@ from src.dataio.split_utils import subsample_pairs
 from src.utils.viz import show_prediction  # draws boxes on a de-normalized image
 
 # ----------------- CONFIG (edit paths/fractions here) -----------------
-DATA_ROOT    = r"E:\WPT-Project\Data\sized_squares_filled"
+# DATA_ROOT    = r"E:\WPT-Project\Data\sized_squares_filled"
+DATA_ROOT    = r"E:\WPT-Project\Data\sized_rectangles_filled"
 IMG_DIR_TEST = fr"{DATA_ROOT}\test"
 XML_DIR_ALL  = fr"{DATA_ROOT}\annotations"
 
@@ -20,7 +21,7 @@ CKPT_PATH    = "outputs/fasterrcnn_squares_cpu.pt"
 
 F_TEST       = 0.05     # fraction of test to consider
 SEED         = 14
-K_IMAGES     = 10    # how many images to prepare for XAI
+K_IMAGES     = 5    # how many images to prepare for XAI
 SCORE_THR    = 0.50     # confidence threshold for final detections
 # ----------------------------------------------------------------------
 
