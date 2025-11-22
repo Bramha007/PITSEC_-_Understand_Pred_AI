@@ -25,8 +25,8 @@ XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
 # --- B. CLASSIFICATION MODEL & TRAINING PARAMETERS ---
 
-EPOCHS = 10                  # Increased for better convergence
-BATCH_SIZE = 64              # Good size for 224x224 crops on GPU
+EPOCHS = 4                 # Increased for better convergence
+BATCH_SIZE = 4              # Good size for 224x224 crops on GPU
 LR = 1e-3
 SEED = 42
 NUM_WORKERS = 4              # Keep high for GPU data loading
