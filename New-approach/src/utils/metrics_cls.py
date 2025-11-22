@@ -1,9 +1,10 @@
-# src/utils/metrics_cls.py
 import os, json
 import numpy as np
 from sklearn.metrics import confusion_matrix
+from src.setup.config_cls import SIZE_BINS # Import the source of truth for class names
 
-CLASS_NAMES = ["8", "16", "32", "64", "128"]
+# CLASS_NAMES is now derived from the global SIZE_BINS list
+CLASS_NAMES = [str(s) for s in SIZE_BINS] # Convert integers to strings for labels
 
 def summarize_classifier(y_true, y_pred, out_dir="outputs", tag="test"):
     os.makedirs(out_dir, exist_ok=True)
