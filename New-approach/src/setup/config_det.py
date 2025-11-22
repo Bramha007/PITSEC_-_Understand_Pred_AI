@@ -30,7 +30,7 @@ XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 # B. MODEL & TRAINING PARAMETERS
 # ====================================================================
 
-EPOCHS      = 2      # Increased for better training
+EPOCHS      = 4      # Increased for better training
 BATCH_SIZE  = 4       # Increased for GPU efficiency
 LR          = 0.003
 SEED        = 42      # Ensures deterministic results
@@ -40,15 +40,16 @@ NUM_WORKERS = 4       # Use 4-8 workers when on GPU to prevent data bottlenecks
 # Use 'cpu' to force CPU, or 'cuda' to force GPU.
 DEVICE      = "auto" 
 
+OPTIMIZER_NAME = "SGD" #"AdamW" # Options: "SGD", "AdamW"
 
 # ====================================================================
 # C. DATA SUBSET FRACTIONS
 # ====================================================================
 
 # Fractions (0.0 to 1.0) to subsample the dataset splits
-F_TRAIN = 0.0005  
-F_VAL   = 0.005
-F_TEST  = 0.005
+F_TRAIN = 0.05 
+F_VAL   = 0.05
+F_TEST  = 0.05
 
 # Hard-cap the training items if the fraction still yields too much data
 MAX_TRAIN_ITEMS = None
