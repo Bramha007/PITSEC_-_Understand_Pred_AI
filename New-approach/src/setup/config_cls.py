@@ -25,7 +25,7 @@ XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
 # --- B. CLASSIFICATION MODEL & TRAINING PARAMETERS ---
 
-EPOCHS = 4                 # Increased for better convergence
+EPOCHS = 5                 # Increased for better convergence
 BATCH_SIZE = 4              # Good size for 224x224 crops on GPU
 LR = 1e-3
 SEED = 42
@@ -77,7 +77,7 @@ SIZE_CLASS_MAP = {
 NUM_CLS_CLASSES = 25 # Total number of unique WxH combinations
 
 # --- D. DATA SUBSET FRACTIONS ---
-F_TRAIN = 0.0005
-F_VAL = 0.005
-F_TEST = 0.005
+F_TRAIN = 0.2
+F_VAL = 0.05
+F_TEST = 0.05
 MAX_TRAIN_ITEMS = None
