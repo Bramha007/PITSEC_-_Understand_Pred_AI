@@ -35,7 +35,6 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 
-
 # def parse_voc(xml_path: str):
 #     """Parses a PASCAL VOC-style XML file, extracting dimensions, boxes, and size labels."""
 #     root = ET.parse(xml_path).getroot()
@@ -43,19 +42,19 @@ import xml.etree.ElementTree as ET
 #     h = int(root.find("size/height").text)
 #     boxes = []
 #     labels_str = []  # List to store size string labels (e.g., '32x32')
-    
+
 #     for obj in root.findall("object"):
 #         bb = obj.find("bndbox")
-        
+
 #         # --- Bounding Box Extraction and Cleaning ---
 #         xmin = max(0, int(float(bb.find("xmin").text)))
 #         ymin = max(0, int(float(bb.find("ymin").text)))
 #         xmax = int(float(bb.find("xmax").text))
 #         ymax = int(float(bb.find("ymax").text))
-        
+
 #         if xmax > xmin and ymax > ymin:
 #             boxes.append([xmin, ymin, xmax, ymax])
-            
+
 #             # --- Size Label Extraction from <attributes> ---
 #             attrs = obj.find("attributes")
 #             obj_w = attrs.find("width").text
@@ -63,24 +62,56 @@ import xml.etree.ElementTree as ET
 #             labels_str.append(f"{obj_w}x{obj_h}")
 
 #     return {"width": w, "height": h, "boxes": boxes, "labels_str": labels_str}
-def parse_voc(xml_path: str):
+# def parse_voc(xml_path: str):
+#     root = ET.parse(xml_path).getroot()
+#     w = int(root.find("size/width").text)
+#     h = int(root.find("size/height").text)
+#     boxes = []
+
+#     for obj in root.findall("object"):
+#         bb = obj.find("bndbox")
+#         xmin = max(0, int(float(bb.find("xmin").text)))
+#         ymin = max(0, int(float(bb.find("ymin").text)))
+#         xmax = int(float(bb.find("xmax").text))
+#         ymax = int(float(bb.find("ymax").text))
+
+#         if xmax > xmin and ymax > ymin:
+#             boxes.append([xmin, ymin, xmax, ymax])
+
+#     # Only return boxes, W, H, let the dataset calculate the label
+#     return {"width": w, "height": h, "boxes": boxes}
+
+
+def parse_voc(xml_path: str) -> dict:
     root = ET.parse(xml_path).getroot()
     w = int(root.find("size/width").text)
     h = int(root.find("size/height").text)
     boxes = []
-    
+    # NEW: List to store WxH labels as strings (e.g., '32x64')
+    labels_wxh_str = []
+
     for obj in root.findall("object"):
-        bb = obj.find("bndbox")
-        xmin = max(0, int(float(bb.find("xmin").text)))
-        ymin = max(0, int(float(bb.find("ymin").text)))
-        xmax = int(float(bb.find("xmax").text))
-        ymax = int(float(bb.find("ymax").text))
-        
+        for obj in root.findall("object"):
+            bb = obj.find("bndbox")
+            xmin = max(0, int(float(bb.find("xmin").text)))
+            ymin = max(0, int(float(bb.find("ymin").text)))
+            xmax = int(float(bb.find("xmax").text))
+            ymax = int(float(bb.find("ymax").text))
+
         if xmax > xmin and ymax > ymin:
             boxes.append([xmin, ymin, xmax, ymax])
 
-    # Only return boxes, W, H, let the dataset calculate the label
-    return {"width": w, "height": h, "boxes": boxes}
+            # --- Extract WxH from <attributes> ---
+            attrs = obj.find("attributes")
+            obj_w = attrs.find("width").text
+            obj_h = attrs.find("height").text
+
+            # Create a consistent WxH label string
+            labels_wxh_str.append(f"{obj_w}x{obj_h}")
+
+    # Return the new WxH labels along with boxes
+    return {"width": w, "height": h, "boxes": boxes, "labels_wxh_str": labels_wxh_str}
+
 
 def paired_image_xml_list(img_dir, xml_dir, img_exts={".png", ".bmp", ".jpg", ".jpeg"}):
     """Pairs image files with corresponding XML annotation files."""
