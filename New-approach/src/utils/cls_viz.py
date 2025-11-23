@@ -3,9 +3,9 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
+from src.setup import config_cls as config # Import config_cls
 
 # Map indices to human-readable size buckets (adjust if you change bins)
-CLASS_NAMES = ["8", "16", "32", "64", "128"]
 
 def save_confusion_matrix(y_true, y_pred, out_path="outputs/confmat_cls.png"):
     cm = confusion_matrix(y_true, y_pred, labels=list(range(len(CLASS_NAMES))))
