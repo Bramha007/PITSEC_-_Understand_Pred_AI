@@ -6,7 +6,7 @@ deterministic: true
 
 data:
   root: data/sized_rectangles_unfilled
-  limit_per_split: 25
+  limit_per_split: 3000
 
 model:
   model_name: resnet18
@@ -15,23 +15,23 @@ model:
   out_dim: 2
 
 train:
-  epochs: 2
-  batch_size: 4
-  num_workers: 2
-  lr: 0.001
+  epochs: 10
+  batch_size: 32
+  num_workers: 8
+  lr: 0.002
   weight_decay: 0.0001
   loss: mse
-  log_every: 1
+  log_every: 50
   amp: true
   clip_grad_norm: 1.0
   scheduler:
     name: step
-    step_size: 1
-    gamma: 0.9
+    step_size: 5
+    gamma: 0.1
 
 eval:
-  batch_size: 4
-  num_workers: 2
+  batch_size: 32
+  num_workers: 8
   run_during_train: true
 
 metrics:
@@ -45,9 +45,9 @@ early_stopping:
 out_dir: outputs/cls/test
 
 test:
-  weights: 
+  weights:
 
 explain:
   out_dir: outputs/cls/xai_test
-  weights: 
+  weights:
   methods: [gradcam, ig, occlusion]

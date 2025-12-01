@@ -1,17 +1,14 @@
-# configs/det/test_cust.yaml
+# configs/det/test_custom.yaml
 
 # Uses Custom Anchors
 
 seed: 1337
 device: cuda
-out_dir: outputs/det/test_cust
-
-cache:
-  torch_home: weights
+out_dir: outputs/det/test_custom
 
 data:
   root: data/sized_rectangles_unfilled
-  limit_per_split: null
+  limit_per_split: 3000
 
 model:
   num_classes: 2
@@ -25,22 +22,24 @@ model:
     - [0.5, 1.0, 2.0]
 
 train:
-  epochs: 2
-  batch_size: 4
-  num_workers: 4
+  epochs: 10
+  batch_size: 8
+  num_workers: 8
   lr: 0.005
   weight_decay: 0.0005
   optimizer: sgd
   scheduler:
-    name: null                           # No Scheduler For Quick Test
+    name: step
+    step_size: 5
+    gamma: 0.1
   amp: true
   log_every: 50
-  grad_clip: 0.0                          # No Gradient Clipping
+  grad_clip: 1.0
 
 eval:
   run_during_train: true
-  batch_size: 1
-  num_workers: 2
+  batch_size: 4
+  num_workers: 4
 
 early_stopping:
   monitor: ap50_global
