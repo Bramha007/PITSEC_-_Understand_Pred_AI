@@ -5,7 +5,7 @@ device: cuda
 deterministic: true
 
 data:
-  root: data/sized_rectangles_unfilled
+  root: /pitsec_sose2025_team3_1/data/sized_rectangles_unfilled
 
 model:
   model_name: resnet18
