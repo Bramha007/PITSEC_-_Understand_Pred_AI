@@ -14,7 +14,7 @@ model:
   out_dim: 2
 
 train:
-  epochs: 50                    # Optimal For Dataset + Early Stopping
+  epochs: 50
   batch_size: 64
   num_workers: 4
   lr: 0.001
@@ -25,7 +25,7 @@ train:
   clip_grad_norm: 1.0
   scheduler:
     name: step
-    step_size: 25               # Decay After Half Training
+    step_size: 25
     gamma: 0.1
 
 eval:

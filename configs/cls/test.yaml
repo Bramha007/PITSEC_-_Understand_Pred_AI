@@ -6,7 +6,7 @@ deterministic: true
 
 data:
   root: /pitsec_sose2025_team3_1/data/sized_squares_filled
-  limit_per_split: 3000         # Quick Test Subset
+  limit_per_split: 3000
 
 model:
   model_name: resnet18
@@ -15,8 +15,8 @@ model:
   out_dim: 2
 
 train:
-  epochs: 10                    # Quick Validation
-  batch_size: 64
+  epochs: 10
+  batch_size: 32
   num_workers: 4
   lr: 0.001
   weight_decay: 0.0001
@@ -30,8 +30,8 @@ train:
     gamma: 0.1
 
 eval:
-  batch_size: 64
-  num_workers: 4
+  batch_size: 32
+  num_workers: 2
   run_during_train: true
 
 metrics:
@@ -45,7 +45,7 @@ early_stopping:
 out_dir: outputs/cls/test
 
 test:
-  weights:
+  weights: 
 
 explain:
   out_dir: outputs/cls/xai_test
