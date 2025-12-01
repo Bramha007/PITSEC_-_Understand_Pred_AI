@@ -5,7 +5,7 @@ device: cuda
 out_dir: outputs/det/test
 
 data:
-  root: /pitsec_sose2025_team3_1/data/sized_rectangles_unfilled
+  root: data/sized_rectangles_unfilled
   limit_per_split: 3000
 
 model:
