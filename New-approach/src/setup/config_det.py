@@ -7,8 +7,8 @@ import os
 # ====================================================================
 
 # The root directory for the dataset. Adjust this to your environment.
-DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled"  
-# DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
+# DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled"  
+DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
 
 # Output directory for checkpoints and metrics
 OUTPUT_DIR = "outputs_v2"
