@@ -32,8 +32,8 @@ from typing import Tuple, List
 def build_fasterrcnn(
     num_classes: int,
     backbone_weights: str = "DEFAULT",
-    anchor_sizes: Tuple[Tuple[int, ...], ...] | None = None,
-    anchor_ratios: Tuple[Tuple[float, ...], ...] | None = None
+    # anchor_sizes: Tuple[Tuple[int, ...], ...] | None = None,
+    # anchor_ratios: Tuple[Tuple[float, ...], ...] | None = None
 ):
     """
     Builds a Faster R-CNN model with MobileNetV3 backbone.
@@ -46,9 +46,9 @@ def build_fasterrcnn(
     )
 
     # --- RPN Anchor Customization (Optional for small objects) ---
-    if anchor_sizes and anchor_ratios:
-        print("Note: Custom Anchor Generator applied.")
-        model.rpn.anchor_generator = AnchorGenerator(anchor_sizes, anchor_ratios)
+    # if anchor_sizes and anchor_ratios:
+    #     print("Note: Custom Anchor Generator applied.")
+    #     model.rpn.anchor_generator = AnchorGenerator(anchor_sizes, anchor_ratios)
     
     # --- Classification Head Replacement ---
     # Get the number of input features for the box predictor
