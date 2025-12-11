@@ -49,9 +49,9 @@ OPTIMIZER_NAME = "SGD" #"AdamW" # Options: "SGD", "AdamW"
 # ====================================================================
 
 # Fractions (0.0 to 1.0) to subsample the dataset splits
-F_TRAIN = 0.5 
-F_VAL   = 0.5
-F_TEST  = 0.5
+F_TRAIN = 0.2 
+F_VAL   = 0.2
+F_TEST  = 0.2
 
 # Hard-cap the training items if the fraction still yields too much data
 MAX_TRAIN_ITEMS = None
