@@ -8,3 +8,5 @@ runs/*
 
 yolov8n.pt
 
+results_linux/
+
