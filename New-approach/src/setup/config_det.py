@@ -22,8 +22,8 @@ XML_DIR_ALL   = os.path.join(DATA_ROOT, "annotations")
 
 # Testing paths for the RECTANGLES dataset (Used for cross-domain testing)
 # You MUST change the path below to point to your 'sized_rectangles_filled' location
-RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' 
-# RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
+# RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' 
+RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
 IMG_DIR_TEST_RECT  = os.path.join(RECT_DATA_ROOT, 'test')
 XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
@@ -34,9 +34,9 @@ XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
 EPOCHS      = 4      # Increased for better training
 BATCH_SIZE  = 4       # Increased for GPU efficiency
-LR          = 0.003
+LR          = 0.001   # Learning Rate
 SEED        = 42      # Ensures deterministic results
-NUM_WORKERS = 4       # Use 4-8 workers when on GPU to prevent data bottlenecks
+NUM_WORKERS = 2       # Use 4-8 workers when on GPU to prevent data bottlenecks
 
 # DEVICE: 'auto' checks for CUDA first, then defaults to CPU.
 # Use 'cpu' to force CPU, or 'cuda' to force GPU.
@@ -49,9 +49,9 @@ OPTIMIZER_NAME = "SGD" #"AdamW" # Options: "SGD", "AdamW"
 # ====================================================================
 
 # Fractions (0.0 to 1.0) to subsample the dataset splits
-F_TRAIN = 0.0005 
-F_VAL   = 0.005
-F_TEST  = 0.005
+F_TRAIN = 0.2 
+F_VAL   = 0.5
+F_TEST  = 0.5
 
 # Hard-cap the training items if the fraction still yields too much data
 MAX_TRAIN_ITEMS = None
