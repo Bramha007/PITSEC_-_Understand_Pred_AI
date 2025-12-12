@@ -36,7 +36,7 @@ EPOCHS      = 4      # Increased for better training
 BATCH_SIZE  = 10       # Increased for GPU efficiency
 LR          = 0.001   # Learning Rate
 SEED        = 42      # Ensures deterministic results
-NUM_WORKERS = 2       # Use 4-8 workers when on GPU to prevent data bottlenecks
+NUM_WORKERS = 1       # Use 4-8 workers when on GPU to prevent data bottlenecks
 
 # DEVICE: 'auto' checks for CUDA first, then defaults to CPU.
 # Use 'cpu' to force CPU, or 'cuda' to force GPU.
