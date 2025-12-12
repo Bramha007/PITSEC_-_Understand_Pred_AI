@@ -212,7 +212,7 @@ if __name__ == "__main__":
     from src.utils.infer_and_viz import run_and_visualize_all  # <-- Import the function
 
     # Visualize Rectangles (Test Domain)
-    run_and_visualize_all(test_on_rectangles=True, limit_count=20)
+    run_and_visualize_all(test_on_rectangles=True, limit_count=100)
 
     # Optionally visualize Squares (Training Domain)
-    run_and_visualize_all(test_on_rectangles=False, limit_count=20)
+    run_and_visualize_all(test_on_rectangles=False, limit_count=100)

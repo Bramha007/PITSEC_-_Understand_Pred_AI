@@ -33,7 +33,7 @@ XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 # ====================================================================
 
 EPOCHS      = 4      # Increased for better training
-BATCH_SIZE  = 4       # Increased for GPU efficiency
+BATCH_SIZE  = 10       # Increased for GPU efficiency
 LR          = 0.001   # Learning Rate
 SEED        = 42      # Ensures deterministic results
 NUM_WORKERS = 2       # Use 4-8 workers when on GPU to prevent data bottlenecks
@@ -49,9 +49,9 @@ OPTIMIZER_NAME = "SGD" #"AdamW" # Options: "SGD", "AdamW"
 # ====================================================================
 
 # Fractions (0.0 to 1.0) to subsample the dataset splits
-F_TRAIN = 0.2 
-F_VAL   = 0.5
-F_TEST  = 0.5
+F_TRAIN = 1 
+F_VAL   = 1
+F_TEST  = 1
 
 # Hard-cap the training items if the fraction still yields too much data
 MAX_TRAIN_ITEMS = None
