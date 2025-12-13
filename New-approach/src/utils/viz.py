@@ -21,3 +21,5 @@ def show_prediction(image_tensor, pred, gt=None, score_thr=0.5, save_path=None):
         plt.savefig(save_path, dpi=120, bbox_inches="tight"); plt.close(fig)
     else:
         plt.show()
+
+
