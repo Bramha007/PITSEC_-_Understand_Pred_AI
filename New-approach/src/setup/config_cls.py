@@ -4,8 +4,8 @@ import os
 
 # --- A. GENERAL SETUP & PATHS (Using absolute paths for Linux stability) ---
 # NOTE: Replace the absolute path below with your confirmed path from the server
-DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled"  # for Windows
-# DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
+# DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled"  # for Windows
+DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
 
 
 # Output directory for classification results
@@ -17,8 +17,8 @@ IMG_DIR_TRAIN = os.path.join(DATA_ROOT, "train")
 IMG_DIR_VAL = os.path.join(DATA_ROOT, "val")
 XML_DIR_ALL = os.path.join(DATA_ROOT, "annotations")
 
-RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' # for Windows
-# RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
+# RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' # for Windows
+RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
 IMG_DIR_TEST_RECT  = os.path.join(RECT_DATA_ROOT, 'test')
 XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
