@@ -94,8 +94,6 @@ def main():
     # Build model using GPU-agnostic function and move to the selected device
     model = build_fasterrcnn(
         num_classes=NUM_CLASSES,
-        # anchor_sizes=config.ANCHOR_SIZES,  # <--- Must be passed correctly
-        # anchor_ratios=config.ANCHOR_RATIOS,  # <--- Must be passed correctly
     ).to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]

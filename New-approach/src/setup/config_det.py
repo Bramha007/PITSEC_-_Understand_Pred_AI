@@ -7,8 +7,8 @@ import os
 # ====================================================================
 
 # The root directory for the dataset. Adjust this to your environment.
-# DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled"  
-DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
+DATA_ROOT = r"E:\WPT-Project\Data\sized_squares_filled" # for Windows  
+# DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_squares_filled" # for Linux
 
 # Output directory for checkpoints and metrics
 OUTPUT_DIR = "outputs_v2"
@@ -22,8 +22,8 @@ XML_DIR_ALL   = os.path.join(DATA_ROOT, "annotations")
 
 # Testing paths for the RECTANGLES dataset (Used for cross-domain testing)
 # You MUST change the path below to point to your 'sized_rectangles_filled' location
-# RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' 
-RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
+RECT_DATA_ROOT = r'E:\WPT-Project\Data\sized_rectangles_filled' # for Windows
+# RECT_DATA_ROOT = "/pitsec_sose2025_team3_1/data/sized_rectangles_filled" # for Linux
 IMG_DIR_TEST_RECT  = os.path.join(RECT_DATA_ROOT, 'test')
 XML_DIR_ALL_RECT   = os.path.join(RECT_DATA_ROOT, 'annotations')
 
@@ -49,9 +49,9 @@ OPTIMIZER_NAME = "SGD" #"AdamW" # Options: "SGD", "AdamW"
 # ====================================================================
 
 # Fractions (0.0 to 1.0) to subsample the dataset splits
-F_TRAIN = 1 
-F_VAL   = 1
-F_TEST  = 1
+F_TRAIN = 0.0005 
+F_VAL   = 0.005
+F_TEST  = 0.005
 
 # Hard-cap the training items if the fraction still yields too much data
 MAX_TRAIN_ITEMS = None
